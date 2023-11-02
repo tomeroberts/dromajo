@@ -52,6 +52,10 @@
 #error unsupported XLEN
 #endif
 
+#include "dromajo_stf.h"
+
+#include <limits>
+
 static inline intx_t glue(div, XLEN)(intx_t a, intx_t b) {
     if (b == 0) {
         return -1;
@@ -243,6 +247,7 @@ static uint32_t chkfp32(target_ulong a) {
 int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles);
 
 int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
+
     uint32_t     opcode, insn, rd, rs1, rs2, funct3;
     int32_t      imm, cond, err;
     target_ulong addr, val, val2;
@@ -278,7 +283,9 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
     }
 
     s->pending_exception = -1;
+    s->last_data_vaddr = std::numeric_limits<decltype(s->last_data_vaddr)>::max();
     n_cycles++;
+
     /* Note: we assume NULL is represented as a zero number */
     code_ptr          = NULL;
     code_end          = NULL;
@@ -287,6 +294,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
     /* we use a single execution loop to keep a simple control flow
        for emscripten */
     for (;;) {
+        s->last_pc = s->pc;
         s->pc = GET_PC();
         if (unlikely(!--n_cycles))
             goto the_end;
@@ -344,6 +352,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
         rd     = (insn >> 7) & 0x1f;
         rs1    = (insn >> 15) & 0x1f;
         rs2    = (insn >> 20) & 0x1f;
+
         switch (opcode) {
             C_QUADRANT(0)
             funct3 = (insn >> 13) & 7;
@@ -1807,6 +1816,14 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
         }
         /* update PC for next instruction */
     jump_insn:;
+
+        if(s->machine->common.stf_trace) {
+            if(stf_trace_trigger(s,GET_PC(),insn)) {
+              s->pc = GET_PC();
+              return insn_executed;
+            }
+        }
+
     } /* end of main loop */
 illegal_insn:
     s->pending_exception = CAUSE_ILLEGAL_INSTRUCTION;
