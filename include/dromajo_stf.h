@@ -1,3 +1,6 @@
+//
+// STF gen protos.
+//
 #pragma once
 
 #include "machine.h"

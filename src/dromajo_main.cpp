@@ -1069,9 +1069,8 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
 
     s->common.snapshot_save_name = snapshot_save_name;
     s->common.trace              = trace;
-
-    s->common.stf_trace           = stf_trace;
-    s->common.stf_no_priv_check   = stf_no_priv_check;
+    s->common.stf_trace          = stf_trace;
+    s->common.stf_no_priv_check  = stf_no_priv_check;
     s->common.stf_tracing_enabled = false;
     s->common.stf_is_start_opc    = false;
     s->common.stf_is_stop_opc     = false;

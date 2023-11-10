@@ -47,7 +47,6 @@
 #endif
 
 #include "dromajo_stf.h"
-
 #include <limits>
 
 #ifdef SIMPOINT_BB
@@ -126,7 +125,6 @@ int simpoint_step(RISCVMachine *m, int hartid) {
 #endif
 
 static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
-
     m->common.maxinsns -= n_cycles;
 
     if (m->common.maxinsns <= 0)
