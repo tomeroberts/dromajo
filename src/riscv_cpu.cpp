@@ -54,6 +54,8 @@
 #include "iomem.h"
 #include "riscv_machine.h"
 
+extern int simpoint_roi;
+
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val)                         \
     ({                                            \

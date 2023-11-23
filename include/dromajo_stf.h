@@ -5,7 +5,7 @@
 
 #include "machine.h"
 #include "riscv_cpu.h"
-#include "../../trace_macros.h"
+#include "trace_macros.h"
 #include "stf-inc/stf_writer.hpp"
 #include "stf-inc/stf_record_types.hpp"
 

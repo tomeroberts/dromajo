@@ -34,6 +34,8 @@ void check_inorder_amo(int cid, uint64_t addr, uint8_t sz, uint64_t st_data, uin
 void check_inorder_init(int ncores);
 #endif
 
+int simpoint_roi = 0;
+
 /*
  * dromajo_cosim_init --
  *
