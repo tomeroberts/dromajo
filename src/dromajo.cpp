@@ -192,10 +192,41 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
             // Record the instruction trace record
             if(false == skip_record)
             {
+		// Source registers
+                for(auto int_reg_src : riscv_get_stf_read_regs(cpu)) {
+                    stf_writer << stf::InstRegRecord(int_reg_src,
+                                                     stf::Registers::STF_REG_TYPE::INTEGER,
+                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                                     riscv_get_reg(cpu, int_reg_src));
+                }
+
+                for(auto fp_reg_src : riscv_get_stf_read_fp_regs(cpu)) {
+                    stf_writer << stf::InstRegRecord(fp_reg_src,
+                                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                                     riscv_get_reg(cpu, fp_reg_src));
+                }
+
+                // Destination registers
+                const auto int_reg_dest = riscv_get_most_recently_written_reg(cpu);
+                if(int_reg_dest != -1)  {
+                    stf_writer << stf::InstRegRecord(int_reg_dest,
+                                                     stf::Registers::STF_REG_TYPE::INTEGER,
+                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                                     riscv_get_reg(cpu, int_reg_dest));
+                }
+
+                const auto fp_reg_dest = riscv_get_most_recently_written_fp_reg(cpu);
+                if(fp_reg_dest != -1)  {
+                    stf_writer << stf::InstRegRecord(fp_reg_dest,
+                                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                                     riscv_get_fpreg(cpu, fp_reg_dest));
+                }
+
                 // If the last instruction were a load/store,
                 // record the last vaddr, size, and if it were a
                 // read or write.
-
                 if(cpu->last_data_vaddr
                     != std::numeric_limits<decltype(cpu->last_data_vaddr)>::max())
                 {
@@ -216,6 +247,9 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
                 }
             }
         }
+
+	// Reset
+	riscv_stf_reset(cpu);
     }
 
     if (!do_trace) {

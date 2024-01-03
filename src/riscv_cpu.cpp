@@ -63,15 +63,26 @@ extern int simpoint_roi;
         s->reg_prior[x]              = s->reg[x]; \
         s->reg[x]                    = (val);     \
     })
-#define read_reg(x) (s->reg[x])
-
+#define read_reg(x)                                  \
+    ({                                               \
+	if(s->machine->common.stf_tracing_enabled) { \
+            s->stf_read_regs.emplace_back(x);        \
+	}                                            \
+        s->reg[x];                                   \
+    })
 #define write_fp_reg(x, val)                     \
     ({                                           \
         s->most_recently_written_fp_reg = (x);   \
         s->fp_reg[x]                    = (val); \
         s->fs                           = 3;     \
     })
-#define read_fp_reg(x) (s->fp_reg[x])
+#define read_fp_reg(x)                               \
+    ({                                               \
+	if(s->machine->common.stf_tracing_enabled) { \
+	    s->stf_read_fp_regs.emplace_back(x);     \
+	}                                            \
+        s->fp_reg[x];                                \
+    })
 
 /*
  * Boom/Rocket doesn't implement all bits in all CSRs but
@@ -2335,6 +2346,15 @@ int riscv_benchmark_exit_code(RISCVCPUState *s) { return s->benchmark_exit_code;
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info) { *info = s->info; }
 
 void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target) { *target = s->next_addr; }
+
+void riscv_stf_reset(RISCVCPUState *s) {
+    s->stf_read_regs.clear();
+    s->stf_read_fp_regs.clear();
+}
+
+std::vector<int> & riscv_get_stf_read_regs(RISCVCPUState *s) { return s->stf_read_regs; }
+
+std::vector<int> & riscv_get_stf_read_fp_regs(RISCVCPUState *s) { return s->stf_read_fp_regs; }
 
 BOOL riscv_terminated(RISCVCPUState *s) { return s->terminate_simulation; }
 

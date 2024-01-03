@@ -44,6 +44,8 @@
 
 #include "riscv.h"
 
+#include <vector>
+
 #define ROM_SIZE       0x00002000
 #define ROM_BASE_ADDR  0x00010000
 #define BOOT_BASE_ADDR 0x00010000
@@ -201,6 +203,7 @@ typedef struct RISCVCPUState {
      * prior to the just excuted instruction. */
     target_ulong reg_prior[32];
     int          most_recently_written_reg;
+    std::vector<int> stf_read_regs;
 
     target_ulong last_data_paddr;
     target_ulong last_data_vaddr = -1;
@@ -213,6 +216,7 @@ typedef struct RISCVCPUState {
 #if FLEN > 0
     fp_uint  fp_reg[32];
     int      most_recently_written_fp_reg;
+    std::vector<int> stf_read_fp_regs;
     uint32_t fflags;
     uint8_t  frm;
 #endif
@@ -359,6 +363,11 @@ int            riscv_get_most_recently_written_reg(RISCVCPUState *s);
 int            riscv_get_most_recently_written_fp_reg(RISCVCPUState *s);
 void           riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info);
 void           riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
+
+/* STF Trace Generation */
+void riscv_stf_reset(RISCVCPUState *s);
+std::vector<int> & riscv_get_stf_read_regs(RISCVCPUState *s);
+std::vector<int> & riscv_get_stf_read_fp_regs(RISCVCPUState *s);
 
 int  riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);
