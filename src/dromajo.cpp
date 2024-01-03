@@ -145,111 +145,25 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     //STF:The start OPC has been detected, throttle back n_cycles
     if(m->common.stf_tracing_enabled) {
-      n_cycles = 1;
+        n_cycles = 1;
     }
 
     if (m->common.trace < (unsigned) n_cycles) {
         n_cycles = 1;
         do_trace = true;
-    } else
+    }
+    else {
       m->common.trace -= n_cycles;
+    }
 
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
-    //STF:Trace the insn if the start OPC has been detected,
-    //do not trace the start or stop insn's
-    if(m->common.stf_tracing_enabled
-       && !m->common.stf_is_start_opc
-       && !m->common.stf_is_stop_opc)
-    {
-        RISCVCPUState *cpu = m->cpu_state[hartid];
+    if(m->common.stf_tracing_enabled) {
+         stf_trace_element(m, hartid, priv, last_pc, insn_raw);
 
-        if((priv == 0 || m->common.stf_no_priv_check)
-               && (cpu->pending_exception == -1)
-               && (m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF)))
-        {
-
-            ++m->common.stf_count;
-            const uint32_t inst_width = ((insn_raw & 0x3) == 0x3) ? 4 : 2;
-            bool skip_record = false;
-
-            // See if the instruction changed control flow or a
-            // possible not-taken branch conditional
-            if(cpu->info != ctf_nop) {
-                stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
-            }
-            else {
-                // Not sure what's going on, but there's a
-                // possibility that the current instruction will
-                // cause a page fault or a timer interrupt or
-                // process switch so the next instruction might
-                // not be on the program's path
-                if(cpu->pc != last_pc + inst_width) {
-                    skip_record = true;
-                }
-            }
-
-            // Record the instruction trace record
-            if(false == skip_record)
-            {
-		// Source registers
-                for(auto int_reg_src : riscv_get_stf_read_regs(cpu)) {
-                    stf_writer << stf::InstRegRecord(int_reg_src,
-                                                     stf::Registers::STF_REG_TYPE::INTEGER,
-                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                                     riscv_get_reg(cpu, int_reg_src));
-                }
-
-                for(auto fp_reg_src : riscv_get_stf_read_fp_regs(cpu)) {
-                    stf_writer << stf::InstRegRecord(fp_reg_src,
-                                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                                     riscv_get_reg(cpu, fp_reg_src));
-                }
-
-                // Destination registers
-                const auto int_reg_dest = riscv_get_most_recently_written_reg(cpu);
-                if(int_reg_dest != -1)  {
-                    stf_writer << stf::InstRegRecord(int_reg_dest,
-                                                     stf::Registers::STF_REG_TYPE::INTEGER,
-                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                                     riscv_get_reg(cpu, int_reg_dest));
-                }
-
-                const auto fp_reg_dest = riscv_get_most_recently_written_fp_reg(cpu);
-                if(fp_reg_dest != -1)  {
-                    stf_writer << stf::InstRegRecord(fp_reg_dest,
-                                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                                     riscv_get_fpreg(cpu, fp_reg_dest));
-                }
-
-                // If the last instruction were a load/store,
-                // record the last vaddr, size, and if it were a
-                // read or write.
-                if(cpu->last_data_vaddr
-                    != std::numeric_limits<decltype(cpu->last_data_vaddr)>::max())
-                {
-                    stf_writer << stf::InstMemAccessRecord(cpu->last_data_vaddr,
-                                                           cpu->last_data_size,
-                                                           0,
-                                                           (cpu->last_data_type == 0) ?
-                                                           stf::INST_MEM_ACCESS::READ :
-                                                           stf::INST_MEM_ACCESS::WRITE);
-                    stf_writer << stf::InstMemContentRecord(0); // empty content for now
-                }
-
-                if(inst_width == 4) {
-                   stf_writer << stf::InstOpcode32Record(insn_raw);
-                }
-                else {
-                   stf_writer << stf::InstOpcode16Record(insn_raw & 0xFFFF);
-                }
-            }
-        }
-
-	// Reset
-	riscv_stf_reset(cpu);
+	 if(!keep_going) {
+	     stf_trace_close(m, last_pc);
+	 }
     }
 
     if (!do_trace) {

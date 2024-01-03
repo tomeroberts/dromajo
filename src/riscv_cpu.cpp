@@ -2352,9 +2352,9 @@ void riscv_stf_reset(RISCVCPUState *s) {
     s->stf_read_fp_regs.clear();
 }
 
-std::vector<int> & riscv_get_stf_read_regs(RISCVCPUState *s) { return s->stf_read_regs; }
+std::vector<target_ulong> & riscv_get_stf_read_regs(RISCVCPUState *s) { return s->stf_read_regs; }
 
-std::vector<int> & riscv_get_stf_read_fp_regs(RISCVCPUState *s) { return s->stf_read_fp_regs; }
+std::vector<fp_uint> & riscv_get_stf_read_fp_regs(RISCVCPUState *s) { return s->stf_read_fp_regs; }
 
 BOOL riscv_terminated(RISCVCPUState *s) { return s->terminate_simulation; }
 

@@ -203,7 +203,6 @@ typedef struct RISCVCPUState {
      * prior to the just excuted instruction. */
     target_ulong reg_prior[32];
     int          most_recently_written_reg;
-    std::vector<int> stf_read_regs;
 
     target_ulong last_data_paddr;
     target_ulong last_data_vaddr = -1;
@@ -216,7 +215,6 @@ typedef struct RISCVCPUState {
 #if FLEN > 0
     fp_uint  fp_reg[32];
     int      most_recently_written_fp_reg;
-    std::vector<int> stf_read_fp_regs;
     uint32_t fflags;
     uint8_t  frm;
 #endif
@@ -336,6 +334,14 @@ typedef struct RISCVCPUState {
 
     /* Extension state, not used by Dromajo itself */
     void *ext_cpu_state;
+
+    /* STF Trace Generation State Capture */
+    std::vector<target_ulong> stf_read_regs;
+#if FLEN > 0
+    std::vector<fp_uint> stf_read_fp_regs;
+#endif
+
+
 } RISCVCPUState;
 
 RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid);
@@ -366,8 +372,8 @@ void           riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
 
 /* STF Trace Generation */
 void riscv_stf_reset(RISCVCPUState *s);
-std::vector<int> & riscv_get_stf_read_regs(RISCVCPUState *s);
-std::vector<int> & riscv_get_stf_read_fp_regs(RISCVCPUState *s);
+std::vector<target_ulong> &         riscv_get_stf_read_regs(RISCVCPUState *s);
+std::vector<fp_uint> &              riscv_get_stf_read_fp_regs(RISCVCPUState *s);
 
 int  riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);

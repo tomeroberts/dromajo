@@ -563,6 +563,7 @@ static void usage(const char *prog, const char *msg) {
             "       --terminate-event name of the validate event to terminate execution\n"
             "       --trace start trace dump after a number of instructions. Trace disabled by default\n"
             "       --stf_trace <filename>  Dump an STF trace to the given file\n"
+            "       --stf_tracepoint  Use tracepoints to start/stop STF tracing\n"
             "       --ignore_sbi_shutdown continue simulation even upon seeing the SBI_SHUTDOWN call\n"
             "       --dump_memories dump memories that could be used to load a cosimulation\n"
             "       --memory_size sets the memory size in MiB (default 256 MiB)\n"
@@ -623,6 +624,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     uint64_t    maxinsns                 = 0;
     uint64_t    trace                    = UINT64_MAX;
     const char *stf_trace                = nullptr;
+    bool        stf_tracepoints_enabled  = false;
     long        memory_size_override     = 0;
     uint64_t    memory_addr_override     = 0;
     bool        ignore_sbi_shutdown      = false;
@@ -662,6 +664,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
             {"maxinsns",                required_argument, 0,  'm' }, // CFG
             {"trace   ",                required_argument, 0,  't' },
             {"stf_trace",               required_argument, 0,  'z' },
+            {"stf_tracepoint",                no_argument, 0,  'x' },
             {"ignore_sbi_shutdown",     required_argument, 0,  'P' }, // CFG
             {"dump_memories",                 no_argument, 0,  'D' }, // CFG
             {"memory_size",             required_argument, 0,  'M' }, // CFG
@@ -744,6 +747,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
 
             case 'z': stf_trace = strdup(optarg); break;
             case 'a': stf_no_priv_check = true; break;
+            case 'x': stf_tracepoints_enabled = true; break;
 
             case 'P': ignore_sbi_shutdown = true; break;
 
@@ -1069,11 +1073,14 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
 
     s->common.snapshot_save_name = snapshot_save_name;
     s->common.trace              = trace;
-    s->common.stf_trace          = stf_trace;
-    s->common.stf_no_priv_check  = stf_no_priv_check;
-    s->common.stf_tracing_enabled = false;
-    s->common.stf_is_start_opc    = false;
-    s->common.stf_is_stop_opc     = false;
+
+    /* STF Trace Generation */
+    s->common.stf_trace               = stf_trace;
+    s->common.stf_tracepoints_enabled = stf_tracepoints_enabled;
+    s->common.stf_no_priv_check       = stf_no_priv_check;
+    s->common.stf_tracing_enabled     = false;
+    s->common.stf_is_start_opc        = false;
+    s->common.stf_is_stop_opc         = false;
 
     // Allow the command option argument to overwrite the value
     // specified in the configuration file
