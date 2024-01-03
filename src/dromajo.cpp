@@ -143,8 +143,10 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
 
-    //STF:The start OPC has been detected, throttle back n_cycles
-    if(m->common.stf_tracing_enabled) {
+    /* STF Trace Generaetion
+     * Trace generation as begun, throttle back n_cycles
+     */
+    if(m->common.stf_trace_open) {
         n_cycles = 1;
     }
 
@@ -158,7 +160,7 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
-    if(m->common.stf_tracing_enabled) {
+    if(m->common.stf_trace_open) {
         stf_trace_element(m, hartid, priv, last_pc, insn_raw);
         if(!keep_going) {
             stf_trace_close(m, last_pc);
@@ -266,6 +268,13 @@ int main(int argc, char **argv) {
             fprintf(dromajo_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
             return 1;
         }
+    }
+
+    /* STF Trace Generaetion
+     * Close the trace at the end of simulation
+     */
+    if(m->common.stf_trace_open) {
+        stf_trace_close(m, 0x0);
     }
 
     fprintf(dromajo_stderr, "Simulation speed: %5.2f MIPS (single-core)\n",

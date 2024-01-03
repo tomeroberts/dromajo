@@ -63,12 +63,12 @@ extern int simpoint_roi;
         s->reg_prior[x]              = s->reg[x]; \
         s->reg[x]                    = (val);     \
     })
-#define read_reg(x)                                  \
-    ({                                               \
-	if(s->machine->common.stf_tracing_enabled) { \
-            s->stf_read_regs.emplace_back(x);        \
-	}                                            \
-        s->reg[x];                                   \
+#define read_reg(x)                                      \
+    ({                                                   \
+	if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_regs.emplace_back(x);            \
+	}                                                \
+        s->reg[x];                                       \
     })
 #define write_fp_reg(x, val)                     \
     ({                                           \
@@ -76,12 +76,12 @@ extern int simpoint_roi;
         s->fp_reg[x]                    = (val); \
         s->fs                           = 3;     \
     })
-#define read_fp_reg(x)                               \
-    ({                                               \
-	if(s->machine->common.stf_tracing_enabled) { \
-	    s->stf_read_fp_regs.emplace_back(x);     \
-	}                                            \
-        s->fp_reg[x];                                \
+#define read_fp_reg(x)                                   \
+    ({                                                   \
+	if(s->machine->common.stf_in_traceable_region) { \
+	    s->stf_read_fp_regs.emplace_back(x);         \
+	}                                                \
+        s->fp_reg[x];                                    \
     })
 
 /*

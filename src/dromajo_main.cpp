@@ -1076,12 +1076,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
 
     /* STF Trace Generation */
     s->common.stf_trace               = stf_trace;
-    s->common.stf_tracing_enabled     = false;
-
     s->common.stf_tracepoints_enabled = stf_tracepoints_enabled;
-    s->common.stf_is_start_opc        = false;
-    s->common.stf_is_stop_opc         = false;
-
     auto get_stf_highest_priv_mode = [](const char * stf_priv_modes) -> int {
         if(strcmp(stf_priv_modes, "USHM") == 0) {
             return PRV_M;
@@ -1100,7 +1095,12 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
             exit(1);
         }
     };
-    s->common.stf_highest_priv_mode   = get_stf_highest_priv_mode(stf_priv_modes);
+    s->common.stf_highest_priv_mode = get_stf_highest_priv_mode(stf_priv_modes);
+    s->common.stf_trace_open = false;
+    s->common.stf_in_traceable_region = false;
+    s->common.stf_entering_traceable_region = false;
+    s->common.stf_boot_rom_complete = false;
+    s->common.stf_in_tracepoint_region = !s->common.stf_tracepoint_detected;
 
     // Allow the command option argument to overwrite the value
     // specified in the configuration file

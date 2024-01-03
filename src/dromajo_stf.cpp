@@ -22,19 +22,42 @@
 #include "dromajo_stf.h"
 stf::STFWriter stf_writer;
 
+void stf_record_state(RISCVMachine * m, int hartid)
+{
+    RISCVCPUState * cpu = m->cpu_state[hartid];
+
+    // Record integer registers
+    for(int rn = 0; rn < 32; ++rn) {
+        stf_writer << stf::InstRegRecord(rn,
+                                         stf::Registers::STF_REG_TYPE::INTEGER,
+                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
+                                         riscv_get_reg(cpu, rn));
+    }
+
+#if FLEN > 0
+    // Record floating point registers
+    for(int rn = 0; rn < 32; ++rn) {
+        stf_writer << stf::InstRegRecord(rn,
+                                         stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
+                                         riscv_get_fpreg(cpu, rn));
+    }
+#endif
+
+    // TODO: CSRs
+}
+
 void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn)
 {
-    // Do not include the start or stop tracepoint in the trace
-    if(m->common.stf_is_start_opc || m->common.stf_is_stop_opc) {
-        m->common.stf_is_start_opc = false;
-        m->common.stf_is_stop_opc = false;
+    if(m->common.stf_entering_traceable_region) {
+        m->common.stf_entering_traceable_region = false;
+        stf_record_state(m, hartid);
         return;
     }
 
     RISCVCPUState *cpu = m->cpu_state[hartid];
 
-    // TODO: Add privilege check
-    if((cpu->pending_exception == -1) && (m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF)))
+    if(m->common.stf_in_traceable_region && (cpu->pending_exception == -1) && (m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF)))
     {
         ++(m->common.stf_count);
         const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
@@ -58,7 +81,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
          // Record the instruction trace record
         if(false == skip_record)
         {
-	    // Source registers
+            // Source registers
             for(auto int_reg_src : riscv_get_stf_read_regs(cpu)) {
                 stf_writer << stf::InstRegRecord(int_reg_src,
                                                  stf::Registers::STF_REG_TYPE::INTEGER,
@@ -90,7 +113,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
             // record the last vaddr, size, and if it were a
             // read or write.
             /*
-		if(cpu->last_data_vaddr != std::numeric_limits<decltype(cpu->last_data_vaddr)>::max())
+                if(cpu->last_data_vaddr != std::numeric_limits<decltype(cpu->last_data_vaddr)>::max())
                 {
                     stf_writer << stf::InstMemAccessRecord(cpu->last_data_vaddr,
                                                            cpu->last_data_size,
@@ -100,7 +123,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
                                                            stf::INST_MEM_ACCESS::WRITE);
                     stf_writer << stf::InstMemContentRecord(0); // empty content for now
                 }
-		*/
+                */
 
             if(inst_width == 4) {
                stf_writer << stf::InstOpcode32Record(insn);
@@ -119,43 +142,51 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
 {
     uint64_t pc = virt_machine_get_pc(m, hartid);
 
-    bool open_trace = false;
-    if(m->common.stf_tracing_enabled == false) {
-        // If tracepoints are enabled, open the trace and start tracing when the
-	// start tracepoint is detected
-	if(m->common.stf_tracepoints_enabled && (insn == START_TRACE_OPC)) {
-            m->common.stf_is_start_opc = true;
-	    open_trace = true;
-        }
-	// Otherwise, start tracing once we enter the workload, ignoring the
-	// boot rom
-        else {
-            open_trace = pc == m->ram_base_addr;
+    // Determine if we're in a traceable region of the workload. All conditions
+    // must be met (true) to begin/continue tracing.
+    // TODO: Non-contiguous traces
+
+    // Has the boot rom finished executing?
+    if(m->common.stf_boot_rom_complete == false) {
+        m->common.stf_boot_rom_complete = pc == m->ram_base_addr;
+        if(m->common.stf_boot_rom_complete) {
         }
     }
-    if(open_trace) {
-	stf_trace_open(m, hartid, pc);
+    bool in_traceable_region = m->common.stf_boot_rom_complete;
+
+    // If tracepoints are enabled, open the trace and start tracing when the
+    // start tracepoint is detected
+    if(m->common.stf_tracepoints_enabled) {
+        if(insn == START_TRACE_OPC) {
+            m->common.stf_in_tracepoint_region = true;
+        }
+        else if(insn == STOP_TRACE_OPC) {
+            m->common.stf_in_tracepoint_region = false;
+        }
+    }
+    in_traceable_region &= m->common.stf_in_tracepoint_region;
+
+    // Are we in a traceable privilege mode?
+    in_traceable_region &= \
+        m->common.stf_highest_priv_mode <= riscv_get_priv_level(m->cpu_state[hartid]);
+
+    // If we're entering the traceable region, the next instruction executed
+    // will be traced. The current instruction will not be traced.
+    m->common.stf_entering_traceable_region = \
+        in_traceable_region && (m->common.stf_in_traceable_region == false);
+
+    // If entering the traceable region for the first time, open the trace.
+    if((m->common.stf_trace_open == false) && m->common.stf_entering_traceable_region) {
+        stf_trace_open(m, hartid, pc);
     }
 
-    bool close_trace = false;
-    if(m->common.stf_tracing_enabled) {
-        // If tracepoints are enabled, close the trace when the stop tracepoint
-	// is detected
-        if(m->common.stf_tracepoints_enabled && (insn == STOP_TRACE_OPC)) {
-            m->common.stf_is_stop_opc = true;
-	    close_trace = true;
-        }
-    }
-    if(close_trace) {
-	stf_trace_close(m, pc);
-    }
-
-    return m->common.stf_tracing_enabled;
+    m->common.stf_in_traceable_region = in_traceable_region;
+    return m->common.stf_trace_open;
 }
 
 void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
 {
-    m->common.stf_tracing_enabled = true;
+    m->common.stf_trace_open = true;
     fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Started at 0x%llx\n", pc);
 
     RISCVCPUState * s = m->cpu_state[hartid];
@@ -176,7 +207,7 @@ void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
 
 void stf_trace_close(RISCVMachine * m, target_ulong pc)
 {
-    m->common.stf_tracing_enabled = false;
+    m->common.stf_trace_open = false;
     fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Stopped at 0x%llx\n", pc);
     fprintf(dromajo_stderr, ">>> DROMAJO: Traced %llu insts\n", m->common.stf_count);
     stf_writer.close();
