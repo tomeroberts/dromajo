@@ -114,33 +114,34 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     riscv_stf_reset(cpu);
 }
 
-bool stf_trace_trigger(RISCVCPUState * s, target_ulong PC, uint32_t insn)
+bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
 {
-    if(s->machine->common.stf_tracepoints_enabled) {
-        s->machine->common.stf_is_start_opc = insn == START_TRACE_OPC;
-        s->machine->common.stf_is_stop_opc  = insn == STOP_TRACE_OPC;
+    uint64_t pc = virt_machine_get_pc(m, hartid);
+    if(m->common.stf_tracepoints_enabled) {
+        m->common.stf_is_start_opc = insn == START_TRACE_OPC;
+        m->common.stf_is_stop_opc  = insn == STOP_TRACE_OPC;
     }
 
-    const bool open_trace = (s->machine->common.stf_tracing_enabled == false) &&
-        ((s->machine->common.stf_tracepoints_enabled == false) || s->machine->common.stf_is_start_opc);
+    const bool open_trace = (m->common.stf_tracing_enabled == false) &&
+        ((m->common.stf_tracepoints_enabled == false) || m->common.stf_is_start_opc);
     if(open_trace) {
-	stf_trace_open(s, PC);
+	stf_trace_open(m, hartid, pc);
     }
 
-    const bool close_trace = s->machine->common.stf_tracepoints_enabled && s->machine->common.stf_is_stop_opc;
+    const bool close_trace = m->common.stf_tracepoints_enabled && m->common.stf_is_stop_opc;
     if(close_trace) {
-	stf_trace_close(s->machine, PC);
+	stf_trace_close(m, pc);
     }
 
-    return s->machine->common.stf_tracing_enabled;
+    return m->common.stf_tracing_enabled;
 }
 
-void stf_trace_open(RISCVCPUState * s, target_ulong PC)
+void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
 {
-    RISCVMachine * m = s->machine;
     m->common.stf_tracing_enabled = true;
-    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Started at 0x%llx\n", PC);
+    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Started at 0x%llx\n", pc);
 
+    RISCVCPUState * s = m->cpu_state[hartid];
     m->common.stf_prog_asid = (s->satp >> 4) & 0xFFFF;
 
     if((bool)stf_writer == false) {
@@ -151,15 +152,15 @@ void stf_trace_open(RISCVCPUState * s, target_ulong PC)
         stf_writer.setHeaderIEM(stf::INST_IEM::STF_INST_IEM_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_PHYSICAL_ADDRESS);
-        stf_writer.setHeaderPC(PC);
+        stf_writer.setHeaderPC(pc);
         stf_writer.finalizeHeader();
     }
 }
 
-void stf_trace_close(RISCVMachine * m, target_ulong PC)
+void stf_trace_close(RISCVMachine * m, target_ulong pc)
 {
     m->common.stf_tracing_enabled = false;
-    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Stopped at 0x%llx\n", PC);
+    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Stopped at 0x%llx\n", pc);
     fprintf(dromajo_stderr, ">>> DROMAJO: Traced %llu insts\n", m->common.stf_count);
     stf_writer.close();
 }

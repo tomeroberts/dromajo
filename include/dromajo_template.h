@@ -1813,9 +1813,9 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
     jump_insn:;
 
         if(s->machine->common.stf_trace) {
-            if(stf_trace_trigger(s,GET_PC(),insn)) {
-              s->pc = GET_PC();
-              return insn_executed;
+            if(stf_trace_trigger(s->machine, s->mhartid, insn)) {
+                s->pc = GET_PC();
+                return insn_executed;
             }
         }
 

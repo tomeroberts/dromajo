@@ -159,11 +159,10 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
     if(m->common.stf_tracing_enabled) {
-         stf_trace_element(m, hartid, priv, last_pc, insn_raw);
-
-	 if(!keep_going) {
-	     stf_trace_close(m, last_pc);
-	 }
+        stf_trace_element(m, hartid, priv, last_pc, insn_raw);
+        if(!keep_going) {
+            stf_trace_close(m, last_pc);
+        }
     }
 
     if (!do_trace) {
