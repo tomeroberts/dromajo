@@ -24,9 +24,10 @@ stf::STFWriter stf_writer;
 
 void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn)
 {
-    //STF:Trace the insn if the start OPC has been detected,
-    //do not trace the start or stop insn's
-    if(m->common.stf_is_start_opc) {
+    // Do not include the start or stop tracepoint in the trace
+    if(m->common.stf_is_start_opc || m->common.stf_is_stop_opc) {
+        m->common.stf_is_start_opc = false;
+        m->common.stf_is_stop_opc = false;
         return;
     }
 
@@ -117,18 +118,34 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
 bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
 {
     uint64_t pc = virt_machine_get_pc(m, hartid);
-    if(m->common.stf_tracepoints_enabled) {
-        m->common.stf_is_start_opc = insn == START_TRACE_OPC;
-        m->common.stf_is_stop_opc  = insn == STOP_TRACE_OPC;
-    }
 
-    const bool open_trace = (m->common.stf_tracing_enabled == false) &&
-        ((m->common.stf_tracepoints_enabled == false) || m->common.stf_is_start_opc);
+    bool open_trace = false;
+    if(m->common.stf_tracing_enabled == false) {
+        // If tracepoints are enabled, open the trace and start tracing when the
+	// start tracepoint is detected
+	if(m->common.stf_tracepoints_enabled && (insn == START_TRACE_OPC)) {
+            m->common.stf_is_start_opc = true;
+	    open_trace = true;
+        }
+	// Otherwise, start tracing once we enter the workload, ignoring the
+	// boot rom
+        else {
+            open_trace = pc == m->ram_base_addr;
+        }
+    }
     if(open_trace) {
 	stf_trace_open(m, hartid, pc);
     }
 
-    const bool close_trace = m->common.stf_tracepoints_enabled && m->common.stf_is_stop_opc;
+    bool close_trace = false;
+    if(m->common.stf_tracing_enabled) {
+        // If tracepoints are enabled, close the trace when the stop tracepoint
+	// is detected
+        if(m->common.stf_tracepoints_enabled && (insn == STOP_TRACE_OPC)) {
+            m->common.stf_is_stop_opc = true;
+	    close_trace = true;
+        }
+    }
     if(close_trace) {
 	stf_trace_close(m, pc);
     }
