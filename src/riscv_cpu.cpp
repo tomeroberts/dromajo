@@ -59,34 +59,34 @@ extern int simpoint_roi;
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
 #define write_reg(x, val)                                \
     ({                                                   \
-	if(s->machine->common.stf_in_traceable_region) { \
+        if(s->machine->common.stf_in_traceable_region) { \
             s->stf_write_regs.emplace_back(x);           \
-	}                                                \
+        }                                                \
         s->most_recently_written_reg = (x);              \
         s->reg_prior[x]              = s->reg[x];        \
         s->reg[x]                    = (val);            \
     })
 #define read_reg(x)                                      \
     ({                                                   \
-	if(s->machine->common.stf_in_traceable_region) { \
+        if(s->machine->common.stf_in_traceable_region) { \
             s->stf_read_regs.emplace_back(x);            \
-	}                                                \
+        }                                                \
         s->reg[x];                                       \
     })
 #define write_fp_reg(x, val)                             \
     ({                                                   \
-	if(s->machine->common.stf_in_traceable_region) { \
+        if(s->machine->common.stf_in_traceable_region) { \
             s->stf_write_fp_regs.emplace_back(x);        \
-	}                                                \
+        }                                                \
         s->most_recently_written_fp_reg = (x);           \
         s->fp_reg[x]                    = (val);         \
         s->fs                           = 3;             \
     })
 #define read_fp_reg(x)                                   \
     ({                                                   \
-	if(s->machine->common.stf_in_traceable_region) { \
-	    s->stf_read_fp_regs.emplace_back(x);         \
-	}                                                \
+        if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_fp_regs.emplace_back(x);         \
+        }                                                \
         s->fp_reg[x];                                    \
     })
 
@@ -195,7 +195,7 @@ static inline uint64_t track_dread(RISCVCPUState *s, uint64_t vaddr, uint64_t pa
 
     if(s->machine->common.stf_in_traceable_region) {
         // FIXME: Hack to prevent the tohost read from being traced everytime
-	if(vaddr != s->machine->htif_tohost_addr) {
+        if(vaddr != s->machine->htif_tohost_addr) {
             s->stf_mem_reads.emplace_back(vaddr, size, data);
         }
     }

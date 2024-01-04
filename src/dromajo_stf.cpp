@@ -57,7 +57,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
 
     RISCVCPUState *cpu = m->cpu_state[hartid];
 
-    if(m->common.stf_in_traceable_region && (cpu->pending_exception == -1) && (m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF))) {
+    if(m->common.stf_in_traceable_region && (cpu->pending_exception == -1)) {
         ++(m->common.stf_count);
         const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
         bool skip_record = false;
@@ -68,11 +68,10 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
             stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
         }
         else {
-            // Not sure what's going on, but there's a
-            // possibility that the current instruction will
-            // cause a page fault or a timer interrupt or
-            // process switch so the next instruction might
-            // not be on the program's path
+            // Not sure what's going on, but there's a possibility that the
+            // current instruction will cause a page fault or a timer interrupt
+            // or process switch so the next instruction might not be on the
+            // program's path
             if(cpu->pc != last_pc + inst_width) {
                 skip_record = true;
             }
@@ -170,6 +169,9 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
     // Are we in a traceable privilege mode?
     in_traceable_region &= \
         m->common.stf_highest_priv_mode <= riscv_get_priv_level(m->cpu_state[hartid]);
+
+    // Are we executing the expected thread?
+    in_traceable_region &= m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF);
 
     // If we're entering the traceable region, the next instruction executed
     // will be traced. The current instruction will not be traced.
