@@ -144,7 +144,7 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
 
     /* STF Trace Generaetion
-     * Trace generation as begun, throttle back n_cycles
+     * Trace generation has begun, throttle back n_cycles
      */
     if(m->common.stf_trace_open) {
         n_cycles = 1;
@@ -162,9 +162,6 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     if(m->common.stf_trace_open) {
         stf_trace_element(m, hartid, priv, last_pc, insn_raw);
-        if(!keep_going) {
-            stf_trace_close(m, last_pc);
-        }
     }
 
     if (!do_trace) {
@@ -271,10 +268,10 @@ int main(int argc, char **argv) {
     }
 
     /* STF Trace Generaetion
-     * Close the trace at the end of simulation
+     * Close the trace at the end of simulation (assume core 0 for now)
      */
     if(m->common.stf_trace_open) {
-        stf_trace_close(m, 0x0);
+        stf_trace_close(m, m->cpu_state[0]->last_pc);
     }
 
     fprintf(dromajo_stderr, "Simulation speed: %5.2f MIPS (single-core)\n",
