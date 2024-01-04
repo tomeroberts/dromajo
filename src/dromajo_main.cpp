@@ -1100,7 +1100,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     s->common.stf_in_traceable_region = false;
     s->common.stf_entering_traceable_region = false;
     s->common.stf_boot_rom_complete = false;
-    s->common.stf_in_tracepoint_region = !s->common.stf_tracepoint_detected;
+    s->common.stf_in_tracepoint_region = !stf_tracepoints_enabled;
 
     // Allow the command option argument to overwrite the value
     // specified in the configuration file
