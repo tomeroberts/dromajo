@@ -144,9 +144,9 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
 
     /* STF Trace Generaetion
-     * Trace generation has begun, throttle back n_cycles
+     * Throttle back n_cycles
      */
-    if(m->common.stf_trace_open) {
+    if(m->common.stf_trace) {
         n_cycles = 1;
     }
 
@@ -160,8 +160,10 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
-    if(m->common.stf_trace_open) {
-        stf_trace_element(m, hartid, priv, last_pc, insn_raw);
+    if(m->common.stf_trace) {
+        if(stf_trace_trigger(m, hartid, insn_raw)) {
+            stf_trace_element(m, hartid, priv, last_pc, insn_raw);
+        }
     }
 
     if (!do_trace) {
