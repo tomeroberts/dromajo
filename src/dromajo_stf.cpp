@@ -56,6 +56,9 @@ bool stf_trace_trigger(RISCVCPUState *s,target_ulong PC,uint32_t insn)
         fprintf(dromajo_stderr, ">>> DROMAJO: Traced %ld insts\n",
                              s->machine->common.stf_count);
         stf_writer.close();
+        if(s->machine->common.stf_exit_on_stop_opc){
+           s->terminate_simulation = 1;
+        }
         return false;
     }
 

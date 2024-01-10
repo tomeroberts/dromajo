@@ -211,6 +211,7 @@ typedef struct VirtMachine {
     bool         stf_no_priv_check;   // override the priv==0 check
     bool         stf_is_start_opc;    // detected the START_TRACE opcode
     bool         stf_is_stop_opc;     // detected the STOP_TRACE opcode
+    bool         stf_exit_on_stop_opc;// terminate the simulation after detecting STOP_TRACE opcode
     uint64_t     stf_prog_asid;       // as named
     uint64_t     stf_count;           // running number of traced insn's
 
