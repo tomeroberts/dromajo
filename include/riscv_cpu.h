@@ -195,6 +195,7 @@ typedef enum {
 typedef struct RISCVCPUState {
     RISCVMachine *machine;
     target_ulong  pc;
+    target_ulong  last_pc;
     target_ulong  reg[32];
     /* Co-simulation sometimes need to see the value of a register
      * prior to the just excuted instruction. */
@@ -202,6 +203,9 @@ typedef struct RISCVCPUState {
     int          most_recently_written_reg;
 
     target_ulong last_data_paddr;
+    target_ulong last_data_vaddr = -1;
+    target_ulong last_data_size  = -1;
+    target_ulong last_data_type  = -1; // 0 == read, 1 == write
 #ifdef GOLDMEM_INORDER
     target_ulong last_data_value;
 #endif

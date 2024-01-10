@@ -41,6 +41,7 @@
 #include <stdint.h>
 
 #include "json.h"
+#include "dromajo_stf.h"
 
 typedef struct RISCVMachine RISCVMachine;
 
@@ -205,6 +206,14 @@ typedef struct VirtMachine {
     char *   terminate_event;
     uint64_t maxinsns;
     uint64_t trace;
+    const char * stf_trace = nullptr; // stf file name
+    bool         stf_tracing_enabled; // stf tracing is active
+    bool         stf_no_priv_check;   // override the priv==0 check
+    bool         stf_is_start_opc;    // detected the START_TRACE opcode
+    bool         stf_is_stop_opc;     // detected the STOP_TRACE opcode
+    bool         stf_exit_on_stop_opc;// terminate the simulation after detecting STOP_TRACE opcode
+    uint64_t     stf_prog_asid;       // as named
+    uint64_t     stf_count;           // running number of traced insn's
 
     /* For co-simulation only, they are -1 if nothing is pending. */
     bool cosim;
