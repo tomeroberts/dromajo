@@ -143,13 +143,6 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
 
-    /* STF Trace Generaetion
-     * Throttle back n_cycles
-     */
-    if(m->common.stf_trace) {
-        n_cycles = 1;
-    }
-
     if (m->common.trace < (unsigned) n_cycles) {
         n_cycles = 1;
         do_trace = true;
@@ -246,6 +239,22 @@ int main(int argc, char **argv) {
     execution_start_ts = get_current_time_in_seconds();
     execution_progress_meassure = &m->cpu_state[0]->minstret;
     signal(SIGINT, sigintr_handler);
+
+    /* STF Trace Generation */
+    if(m->common.stf_trace) {
+        // Throttle back n_cycles
+        n_cycles = 1;
+
+	/* If STF tracing is configured to trace the entire workload (i.e. no tracepoints,
+	 * no privilege mode checks) then the trace can be opened before execution starts.
+	 */
+	const int hartid = 0;
+	const uint32_t insn_raw = 0x0;
+        if(stf_trace_trigger(m, hartid, insn_raw)) {
+            const uint64_t pc = virt_machine_get_pc(m, hartid);
+            stf_trace_open(m, hartid, pc);
+        }
+    }
 
     int keep_going;
     do {

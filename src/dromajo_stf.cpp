@@ -52,28 +52,30 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
 void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn)
 {
     RISCVCPUState * cpu = m->cpu_state[hartid];
+    const uint64_t current_pc = cpu->pc;
 
-    // If entering the traceable region for the first time, open the trace.
-    // If the trace is already open, it means we're reentering the traceable
-    // region after leaving it. Record the state to capture all the program
-    // state changes that occurred in the non-traceable region.
+    /* If entering the traceable region for the first time, open the trace.
+     * If the trace is already open, it means we're reentering the traceable
+     * region after leaving it. Record the state to capture all the program
+     * state changes that occurred in the non-traceable region.
+     */
     if(m->common.stf_entering_traceable_region) {
         if(m->common.stf_trace_open == false) {
-            stf_trace_open(m, hartid, last_pc);
+            stf_trace_open(m, hartid, current_pc);
         }
-        stf_record_state(m, hartid, cpu->pc);
-        m->common.stf_entering_traceable_region = false;
-        return;
+	else {
+            stf_record_state(m, hartid, current_pc);
+            m->common.stf_entering_traceable_region = false;
+        }
+	return;
     }
-
-    RISCVCPUState *cpu = m->cpu_state[hartid];
 
     if(m->common.stf_in_traceable_region) {
         ++(m->common.stf_count);
         const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
 
         // PC target (change of flow)
-        if(cpu->pc != last_pc + inst_width) {
+        if(current_pc != last_pc + inst_width) {
             stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
         }
         // Source registers
@@ -200,6 +202,9 @@ void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
         stf_writer.setHeaderPC(pc);
         stf_writer.finalizeHeader();
     }
+
+    stf_record_state(m, hartid, pc);
+    m->common.stf_entering_traceable_region = false;
 }
 
 void stf_trace_close(RISCVMachine * m, target_ulong pc)
