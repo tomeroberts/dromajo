@@ -66,6 +66,8 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
         return;
     }
 
+    RISCVCPUState *cpu = m->cpu_state[hartid];
+
     if(m->common.stf_in_traceable_region) {
         ++(m->common.stf_count);
         const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
