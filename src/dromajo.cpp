@@ -154,6 +154,7 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
     if(m->common.stf_trace) {
+        // Returns true if current instruction should be traced
         if(stf_trace_trigger(m, hartid, insn_raw)) {
             stf_trace_element(m, hartid, priv, last_pc, insn_raw);
         }
@@ -250,10 +251,7 @@ int main(int argc, char **argv) {
 	 */
 	const int hartid = 0;
 	const uint32_t insn_raw = 0x0;
-        if(stf_trace_trigger(m, hartid, insn_raw)) {
-            const uint64_t pc = virt_machine_get_pc(m, hartid);
-            stf_trace_open(m, hartid, pc);
-        }
+        stf_trace_trigger(m, hartid, insn_raw);
     }
 
     int keep_going;

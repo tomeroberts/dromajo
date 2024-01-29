@@ -54,92 +54,74 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     RISCVCPUState * cpu = m->cpu_state[hartid];
     const uint64_t current_pc = cpu->pc;
 
-    /* If entering the traceable region for the first time, open the trace.
-     * If the trace is already open, it means we're reentering the traceable
-     * region after leaving it. Record the state to capture all the program
-     * state changes that occurred in the non-traceable region.
-     */
-    if(m->common.stf_entering_traceable_region) {
-        if(m->common.stf_trace_open == false) {
-            stf_trace_open(m, hartid, current_pc);
-        }
-	else {
-            stf_record_state(m, hartid, current_pc);
-            m->common.stf_entering_traceable_region = false;
-        }
-	return;
+    ++(m->common.stf_count);
+    const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
+
+    // PC target (change of flow)
+    if(current_pc != last_pc + inst_width) {
+        stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
     }
-
-    if(m->common.stf_in_traceable_region) {
-        ++(m->common.stf_count);
-        const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
-
-        // PC target (change of flow)
-        if(current_pc != last_pc + inst_width) {
-            stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
-        }
-        // Source registers
-        for(auto int_reg_src : cpu->stf_read_regs) {
-            stf_writer << stf::InstRegRecord(int_reg_src,
-                                             stf::Registers::STF_REG_TYPE::INTEGER,
-                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                             riscv_get_reg(cpu, int_reg_src));
-        }
-#if FLEN > 0
-        for(auto fp_reg_src : cpu->stf_read_fp_regs) {
-            stf_writer << stf::InstRegRecord(fp_reg_src,
-                                         stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+    // Source registers
+    for(auto int_reg_src : cpu->stf_read_regs) {
+        stf_writer << stf::InstRegRecord(int_reg_src,
+                                         stf::Registers::STF_REG_TYPE::INTEGER,
                                          stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                         riscv_get_reg(cpu, fp_reg_src));
+                                         riscv_get_reg(cpu, int_reg_src));
+    }
+#if FLEN > 0
+    for(auto fp_reg_src : cpu->stf_read_fp_regs) {
+        stf_writer << stf::InstRegRecord(fp_reg_src,
+                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                     riscv_get_reg(cpu, fp_reg_src));
     }
 #endif
-        // Destination registers
-        for(auto int_reg_dst : cpu->stf_write_regs) {
-            stf_writer << stf::InstRegRecord(int_reg_dst,
-                                             stf::Registers::STF_REG_TYPE::INTEGER,
-                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                             riscv_get_reg(cpu, int_reg_dst));
-        }
+    // Destination registers
+    for(auto int_reg_dst : cpu->stf_write_regs) {
+        stf_writer << stf::InstRegRecord(int_reg_dst,
+                                         stf::Registers::STF_REG_TYPE::INTEGER,
+                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                         riscv_get_reg(cpu, int_reg_dst));
+    }
 #if FLEN > 0
-        for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
-            stf_writer << stf::InstRegRecord(fp_reg_dst,
-                                             stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                             riscv_get_fpreg(cpu, fp_reg_dst));
-        }
+    for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
+        stf_writer << stf::InstRegRecord(fp_reg_dst,
+                                         stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                         riscv_get_fpreg(cpu, fp_reg_dst));
+    }
 #endif
-        // Memory reads
-        for(auto mem_read : cpu->stf_mem_reads) {
-            stf_writer << stf::InstMemAccessRecord(mem_read.vaddr,
-                                                   mem_read.size,
-                                                   0,
-                                                   stf::INST_MEM_ACCESS::READ);
-            stf_writer << stf::InstMemContentRecord(mem_read.value);
-        }
-        // Memory writes
-        for(auto mem_write : cpu->stf_mem_writes) {
-            stf_writer << stf::InstMemAccessRecord(mem_write.vaddr,
-                                                   mem_write.size,
-                                                   0,
-                                                   stf::INST_MEM_ACCESS::WRITE);
-            stf_writer << stf::InstMemContentRecord(mem_write.value); // empty content for now
-        }
-        // Privilege mode change
-        if(cpu->stf_prev_priv_mode != cpu->priv) {
-            stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
-            cpu->stf_prev_priv_mode = cpu->priv;
-        }
-        // Traps or exceptions
-        if(cpu->pending_exception != -1) {
-            stf_writer << stf::EventRecord(stf::EventRecord::TYPE(cpu->pending_exception), (uint64_t)0);
-        }
-        // Opcode (instruction)
-        if(inst_width == 4) {
-           stf_writer << stf::InstOpcode32Record(insn);
-        }
-        else {
-           stf_writer << stf::InstOpcode16Record(insn & 0xFFFF);
-        }
+    // Memory reads
+    for(auto mem_read : cpu->stf_mem_reads) {
+        stf_writer << stf::InstMemAccessRecord(mem_read.vaddr,
+                                               mem_read.size,
+                                               0,
+                                               stf::INST_MEM_ACCESS::READ);
+        stf_writer << stf::InstMemContentRecord(mem_read.value);
+    }
+    // Memory writes
+    for(auto mem_write : cpu->stf_mem_writes) {
+        stf_writer << stf::InstMemAccessRecord(mem_write.vaddr,
+                                               mem_write.size,
+                                               0,
+                                               stf::INST_MEM_ACCESS::WRITE);
+        stf_writer << stf::InstMemContentRecord(mem_write.value); // empty content for now
+    }
+    // Privilege mode change
+    if(cpu->stf_prev_priv_mode != cpu->priv) {
+        stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
+        cpu->stf_prev_priv_mode = cpu->priv;
+    }
+    // Traps or exceptions
+    if(cpu->pending_exception != -1) {
+        stf_writer << stf::EventRecord(stf::EventRecord::TYPE(cpu->pending_exception), (uint64_t)0);
+    }
+    // Opcode (instruction)
+    if(inst_width == 4) {
+       stf_writer << stf::InstOpcode32Record(insn);
+    }
+    else {
+       stf_writer << stf::InstOpcode16Record(insn & 0xFFFF);
     }
 
     // Reset
@@ -173,13 +155,29 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
     const uint64_t asid = (m->cpu_state[hartid]->satp >> 4) & 0xFFFF;
     in_traceable_region &= m->common.stf_prog_asid == asid;
 
-    // If we're entering the traceable region, the next instruction executed
-    // will be traced. The current instruction will not be traced.
-    m->common.stf_entering_traceable_region = \
+    const bool entering_traceable_region = \
         in_traceable_region && (m->common.stf_in_traceable_region == false);
-
+    const bool exiting_traceable_region = \
+        (in_traceable_region == false) && m->common.stf_in_traceable_region;
     m->common.stf_in_traceable_region = in_traceable_region;
-    return m->common.stf_in_traceable_region || m->common.stf_entering_traceable_region;
+
+    /* If entering the traceable region for the first time, open the trace.
+     * If the trace is already open, it means we're reentering the traceable
+     * region after leaving it. Record the state to capture all the program
+     * state changes that occurred in the non-traceable region. The current
+     * instruction will not be traced.
+     */
+    if(entering_traceable_region) {
+        if(m->common.stf_trace_open == false) {
+            stf_trace_open(m, hartid, pc);
+        }
+	else {
+            stf_record_state(m, hartid, pc);
+        }
+    }
+
+    // Returns true if current instruction should be traced
+    return (m->common.stf_in_traceable_region && !entering_traceable_region) || exiting_traceable_region;
 }
 
 void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
@@ -199,12 +197,12 @@ void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
         stf_writer.setHeaderIEM(stf::INST_IEM::STF_INST_IEM_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_PHYSICAL_ADDRESS);
+	// TODO: Update trace features
         stf_writer.setHeaderPC(pc);
         stf_writer.finalizeHeader();
     }
 
     stf_record_state(m, hartid, pc);
-    m->common.stf_entering_traceable_region = false;
 }
 
 void stf_trace_close(RISCVMachine * m, target_ulong pc)

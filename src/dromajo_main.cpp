@@ -1098,7 +1098,6 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     s->common.stf_highest_priv_mode = get_stf_highest_priv_mode(stf_priv_modes);
     s->common.stf_trace_open = false;
     s->common.stf_in_traceable_region = false;
-    s->common.stf_entering_traceable_region = false;
     s->common.stf_in_tracepoint_region = !stf_tracepoints_enabled;
 
     // Allow the command option argument to overwrite the value
