@@ -21,14 +21,14 @@ cd ..
 
 echo "create the bare metal traces"
 for i in illegal bmi_mm.bare bmi_towers.bare; do
-  $DRO $OPT --stf_trace traces/$i.stf  elf/$i.riscv
+  $DRO $OPT --stf_trace traces/$i.zstf  elf/$i.riscv
 done
 
 diffs=0
 
 echo "compare to the golden traces"
 for i in illegal bmi_mm.bare bmi_towers.bare; do
-  diff traces/$i.stf  golden/$i.stf
+  diff traces/$i.zstf  golden/$i.zstf
   diffs=$(expr $diffs + $?)
 done
 
