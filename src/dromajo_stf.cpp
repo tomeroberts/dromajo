@@ -28,24 +28,24 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
 
     stf_writer << stf::ForcePCRecord(last_pc);
 
-    // Record integer registers
-    for(int rn = 0; rn < 32; ++rn) {
-        stf_writer << stf::InstRegRecord(rn,
-                                         stf::Registers::STF_REG_TYPE::INTEGER,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
-                                         riscv_get_reg(cpu, rn));
-    }
-
+    if(m->common.stf_essential_mode == false) {
+        // Record integer registers
+        for(int rn = 0; rn < 32; ++rn) {
+            stf_writer << stf::InstRegRecord(rn,
+                                             stf::Registers::STF_REG_TYPE::INTEGER,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
+                                             riscv_get_reg(cpu, rn));
+        }
 #if FLEN > 0
-    // Record floating point registers
-    for(int rn = 0; rn < 32; ++rn) {
-        stf_writer << stf::InstRegRecord(rn,
-                                         stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
-                                         riscv_get_fpreg(cpu, rn));
-    }
+        // Record floating point registers
+        for(int rn = 0; rn < 32; ++rn) {
+            stf_writer << stf::InstRegRecord(rn,
+                                             stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
+                                             riscv_get_fpreg(cpu, rn));
+        }
 #endif
-
+    }
     // TODO: CSRs
 }
 
@@ -61,52 +61,56 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     if(current_pc != last_pc + inst_width) {
         stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
     }
-    // Source registers
-    for(auto int_reg_src : cpu->stf_read_regs) {
-        stf_writer << stf::InstRegRecord(int_reg_src,
-                                         stf::Registers::STF_REG_TYPE::INTEGER,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                         riscv_get_reg(cpu, int_reg_src));
-    }
+
+    if(m->common.stf_essential_mode == false) {
+        // Source registers
+        for(auto int_reg_src : cpu->stf_read_regs) {
+            stf_writer << stf::InstRegRecord(int_reg_src,
+                                             stf::Registers::STF_REG_TYPE::INTEGER,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                             riscv_get_reg(cpu, int_reg_src));
+        }
 #if FLEN > 0
-    for(auto fp_reg_src : cpu->stf_read_fp_regs) {
-        stf_writer << stf::InstRegRecord(fp_reg_src,
-                                     stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                     stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                     riscv_get_reg(cpu, fp_reg_src));
-    }
-#endif
-    // Destination registers
-    for(auto int_reg_dst : cpu->stf_write_regs) {
-        stf_writer << stf::InstRegRecord(int_reg_dst,
-                                         stf::Registers::STF_REG_TYPE::INTEGER,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                         riscv_get_reg(cpu, int_reg_dst));
-    }
-#if FLEN > 0
-    for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
-        stf_writer << stf::InstRegRecord(fp_reg_dst,
+        for(auto fp_reg_src : cpu->stf_read_fp_regs) {
+            stf_writer << stf::InstRegRecord(fp_reg_src,
                                          stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
-                                         riscv_get_fpreg(cpu, fp_reg_dst));
-    }
+                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                         riscv_get_reg(cpu, fp_reg_src));
+        }
 #endif
-    // Memory reads
-    for(auto mem_read : cpu->stf_mem_reads) {
-        stf_writer << stf::InstMemAccessRecord(mem_read.vaddr,
-                                               mem_read.size,
-                                               0,
-                                               stf::INST_MEM_ACCESS::READ);
-        stf_writer << stf::InstMemContentRecord(mem_read.value);
+        // Destination registers
+        for(auto int_reg_dst : cpu->stf_write_regs) {
+            stf_writer << stf::InstRegRecord(int_reg_dst,
+                                             stf::Registers::STF_REG_TYPE::INTEGER,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                             riscv_get_reg(cpu, int_reg_dst));
+            }
+#if FLEN > 0
+        for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
+            stf_writer << stf::InstRegRecord(fp_reg_dst,
+                                             stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
+                                             riscv_get_fpreg(cpu, fp_reg_dst));
+        }
+#endif
+        // Memory reads
+        for(auto mem_read : cpu->stf_mem_reads) {
+            stf_writer << stf::InstMemAccessRecord(mem_read.vaddr,
+                                                   mem_read.size,
+                                                   0,
+                                                   stf::INST_MEM_ACCESS::READ);
+            stf_writer << stf::InstMemContentRecord(mem_read.value);
+        }
+        // Memory writes
+        for(auto mem_write : cpu->stf_mem_writes) {
+            stf_writer << stf::InstMemAccessRecord(mem_write.vaddr,
+                                                   mem_write.size,
+                                                   0,
+                                                   stf::INST_MEM_ACCESS::WRITE);
+            stf_writer << stf::InstMemContentRecord(mem_write.value); // empty content for now
+        }
     }
-    // Memory writes
-    for(auto mem_write : cpu->stf_mem_writes) {
-        stf_writer << stf::InstMemAccessRecord(mem_write.vaddr,
-                                               mem_write.size,
-                                               0,
-                                               stf::INST_MEM_ACCESS::WRITE);
-        stf_writer << stf::InstMemContentRecord(mem_write.value); // empty content for now
-    }
+
     // Privilege mode change
     if(cpu->stf_prev_priv_mode != cpu->priv) {
         stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
