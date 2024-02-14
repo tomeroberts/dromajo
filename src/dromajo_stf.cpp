@@ -181,7 +181,8 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
     }
 
     // Returns true if current instruction should be traced
-    return (m->common.stf_in_traceable_region && !entering_traceable_region) || exiting_traceable_region;
+    const bool exclude_stop_tracepoint = m->common.stf_tracepoints_enabled && (m->common.stf_include_stop_tracepoint == false) && (insn = STOP_TRACE_OPC);
+    return (m->common.stf_in_traceable_region && !entering_traceable_region) || (exiting_traceable_region && !exclude_stop_tracepoint);
 }
 
 void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)

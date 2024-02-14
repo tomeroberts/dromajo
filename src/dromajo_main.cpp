@@ -565,6 +565,7 @@ static void usage(const char *prog, const char *msg) {
             "       --stf_trace <filename> Dump an STF trace to the given file\n"
             "       --stf_essential_mode Only include essential records in the STF trace\n"
             "       --stf_tracepoint Enable tracepoint detection for STF trace generation\n"
+            "       --stf_include_stop_tracepoint Include the stop tracepoint in the STF trace\n"
             "       --stf_priv_modes <USHM|USH|US|U> Specify which privilege modes to include for STF trace generation\n"
             "       --ignore_sbi_shutdown continue simulation even upon seeing the SBI_SHUTDOWN call\n"
             "       --dump_memories dump memories that could be used to load a cosimulation\n"
@@ -624,10 +625,13 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     long        ncpus                    = 0;
     uint64_t    maxinsns                 = 0;
     uint64_t    trace                    = UINT64_MAX;
-    const char *stf_trace                = nullptr;
-    bool        stf_essential_mode       = false;
-    bool        stf_tracepoints_enabled  = false;
-    const char *stf_priv_modes           = "USHM";
+
+    const char *stf_trace                   = nullptr;
+    bool        stf_essential_mode          = false;
+    bool        stf_tracepoints_enabled     = false;
+    bool        stf_include_stop_tracepoint = false;
+    const char *stf_priv_modes              = "USHM";
+
     long        memory_size_override     = 0;
     uint64_t    memory_addr_override     = 0;
     bool        ignore_sbi_shutdown      = false;
@@ -658,30 +662,31 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
         int option_index = 0;
         // clang-format off
         static struct option long_options[] = {
-            {"cmdline",                  required_argument, 0,  'c' }, // CFG
-            {"ncpus",                    required_argument, 0,  'n' }, // CFG
-            {"load",                     required_argument, 0,  'l' },
-            {"save",                     required_argument, 0,  's' },
-            {"simpoint",                 required_argument, 0,  'S' },
-            {"maxinsns",                 required_argument, 0,  'm' }, // CFG
-            {"trace   ",                 required_argument, 0,  't' },
-            {"stf_trace",                required_argument, 0,  'z' },
-            {"stf_essential_mode",             no_argument, 0,  'y' },
-            {"stf_tracepoint",                 no_argument, 0,  'x' },
-            {"stf_priv_modes",           required_argument, 0,  'a' },
-            {"ignore_sbi_shutdown",      required_argument, 0,  'P' }, // CFG
-            {"dump_memories",                  no_argument, 0,  'D' }, // CFG
-            {"memory_size",              required_argument, 0,  'M' }, // CFG
-            {"memory_addr",              required_argument, 0,  'A' }, // CFG
-            {"bootrom",                  required_argument, 0,  'b' }, // CFG
-            {"compact_bootrom",                no_argument, 0,  'o' },
-            {"reset_vector",             required_argument, 0,  'r' }, // CFG
-            {"dtb",                      required_argument, 0,  'd' }, // CFG
-            {"plic",                     required_argument, 0,  'p' }, // CFG
-            {"clint",                    required_argument, 0,  'C' }, // CFG
-            {"custom_extension",               no_argument, 0,  'u' }, // CFG
-            {"clear_ids",                      no_argument, 0,  'L' }, // CFG
-            {"ctrlc",                          no_argument, 0,  'X' },
+            {"cmdline",                     required_argument, 0,  'c' }, // CFG
+            {"ncpus",                       required_argument, 0,  'n' }, // CFG
+            {"load",                        required_argument, 0,  'l' },
+            {"save",                        required_argument, 0,  's' },
+            {"simpoint",                    required_argument, 0,  'S' },
+            {"maxinsns",                    required_argument, 0,  'm' }, // CFG
+            {"trace   ",                    required_argument, 0,  't' },
+            {"stf_trace",                   required_argument, 0,  'z' },
+            {"stf_essential_mode",                no_argument, 0,  'y' },
+            {"stf_tracepoint",                    no_argument, 0,  'x' },
+            {"stf_include_stop_tracepoint",       no_argument, 0,  'w' },
+            {"stf_priv_modes",              required_argument, 0,  'a' },
+            {"ignore_sbi_shutdown",         required_argument, 0,  'P' }, // CFG
+            {"dump_memories",                     no_argument, 0,  'D' }, // CFG
+            {"memory_size",                 required_argument, 0,  'M' }, // CFG
+            {"memory_addr",                 required_argument, 0,  'A' }, // CFG
+            {"bootrom",                     required_argument, 0,  'b' }, // CFG
+            {"compact_bootrom",                   no_argument, 0,  'o' },
+            {"reset_vector",                required_argument, 0,  'r' }, // CFG
+            {"dtb",                         required_argument, 0,  'd' }, // CFG
+            {"plic",                        required_argument, 0,  'p' }, // CFG
+            {"clint",                       required_argument, 0,  'C' }, // CFG
+            {"custom_extension",                  no_argument, 0,  'u' }, // CFG
+            {"clear_ids",                         no_argument, 0,  'L' }, // CFG
+            {"ctrlc",                             no_argument, 0,  'X' },
 #ifdef LIVECACHE
             {"live_cache_size",          required_argument, 0,  'w' }, // CFG
 #endif
@@ -751,6 +756,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
             case 'z': stf_trace = strdup(optarg); break;
             case 'y': stf_essential_mode = true; break;
             case 'x': stf_tracepoints_enabled = true; break;
+            case 'w': stf_include_stop_tracepoint = true; break;
             case 'a': stf_priv_modes = strdup(optarg); break;
 
             case 'P': ignore_sbi_shutdown = true; break;
@@ -1098,13 +1104,14 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
         }
     };
 
-    s->common.stf_trace                = stf_trace;
-    s->common.stf_essential_mode       = stf_essential_mode;
-    s->common.stf_tracepoints_enabled  = stf_tracepoints_enabled;
-    s->common.stf_highest_priv_mode    = get_stf_highest_priv_mode(stf_priv_modes);
-    s->common.stf_trace_open           = false;
-    s->common.stf_in_traceable_region  = false;
-    s->common.stf_in_tracepoint_region = !stf_tracepoints_enabled;
+    s->common.stf_trace                   = stf_trace;
+    s->common.stf_essential_mode          = stf_essential_mode;
+    s->common.stf_tracepoints_enabled     = stf_tracepoints_enabled;
+    s->common.stf_include_stop_tracepoint = stf_include_stop_tracepoint;
+    s->common.stf_highest_priv_mode       = get_stf_highest_priv_mode(stf_priv_modes);
+    s->common.stf_trace_open              = false;
+    s->common.stf_in_traceable_region     = false;
+    s->common.stf_in_tracepoint_region    = !stf_tracepoints_enabled;
 
     // Allow the command option argument to overwrite the value
     // specified in the configuration file
