@@ -1,10 +1,8 @@
 #! /bin/bash
 
-# TODO: Test without no parameters
-# TODO: Test --stf_priv_modes parameter
-
-# Enabled tracepoint detection for testing
-export OPT='--stf_tracepoint'
+#change comment to not use stf_no_priv_check
+export OPT='--stf_no_priv_check'
+#export OPT
 
 export DRO=../../build/dromajo
 
@@ -15,6 +13,11 @@ rm -f traces/*
 echo "create/extract elf's"
 cd elf
 rm -f *.riscv
+tar xf *.bz2
+
+# clean /extract reference stf's
+cd ../golden
+rm -f golden/*.stf
 tar xf *.bz2
 
 cd ..
