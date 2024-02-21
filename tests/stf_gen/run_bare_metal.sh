@@ -1,9 +1,6 @@
 #! /bin/bash
 
-#change comment to not use stf_no_priv_check
-export OPT='--stf_no_priv_check'
-#export OPT
-
+export OPT='--stf_essential_mode --stf_tracepoint --stf_priv_modes USHM'
 export DRO=../../build/dromajo
 
 echo "clean previous traces"
@@ -18,22 +15,35 @@ tar xf *.bz2
 # clean /extract reference stf's
 cd ../golden
 rm -f golden/*.stf
+rm -f golden/*.zstf
 tar xf *.bz2
 
 cd ..
 
-echo "create the bare metal traces"
-for i in illegal bmi_mm.bare bmi_towers.bare; do
-  $DRO $OPT --stf_trace traces/$i.zstf  elf/$i.riscv
-done
-
 diffs=0
+stf_file_type="stf"
+runRegression()
+{
+  echo "create the bare metal traces"
+  echo "$@\n"
+  for i in $@; do
+    $DRO $OPT --stf_trace traces/$i.$stf_file_type  elf/$i.riscv
+    echo ""
+  done
 
-echo "compare to the golden traces"
-for i in illegal bmi_mm.bare bmi_towers.bare; do
-  diff traces/$i.zstf  golden/$i.zstf
-  diffs=$(expr $diffs + $?)
-done
+  echo "compare to the golden traces"
+  for i in $@; do
+    diff traces/$i.$stf_file_type  golden/$i.$stf_file_type
+    diffs=$(expr $diffs + $?)
+  done
+  echo ""
+}
 
+runRegression illegal bmi_mm.bare bmi_towers.bare
+
+export OPT='--stf_include_stop_tracepoint --stf_tracepoint --stf_priv_modes USHM'
+stf_file_type="zstf"
+runRegression illegal bmi_mm.bare bmi_towers.bare
 echo "number of diffs = $diffs"
+
 exit $diffs
