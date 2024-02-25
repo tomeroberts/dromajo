@@ -57,21 +57,38 @@
 extern int simpoint_roi;
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
-#define write_reg(x, val)                         \
-    ({                                            \
-        s->most_recently_written_reg = (x);       \
-        s->reg_prior[x]              = s->reg[x]; \
-        s->reg[x]                    = (val);     \
+#define write_reg(x, val)                                \
+    ({                                                   \
+        if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_write_regs.emplace_back(x);           \
+        }                                                \
+        s->most_recently_written_reg = (x);              \
+        s->reg_prior[x]              = s->reg[x];        \
+        s->reg[x]                    = (val);            \
     })
-#define read_reg(x) (s->reg[x])
-
-#define write_fp_reg(x, val)                     \
-    ({                                           \
-        s->most_recently_written_fp_reg = (x);   \
-        s->fp_reg[x]                    = (val); \
-        s->fs                           = 3;     \
+#define read_reg(x)                                      \
+    ({                                                   \
+        if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_regs.emplace_back(x);            \
+        }                                                \
+        s->reg[x];                                       \
     })
-#define read_fp_reg(x) (s->fp_reg[x])
+#define write_fp_reg(x, val)                             \
+    ({                                                   \
+        if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_write_fp_regs.emplace_back(x);        \
+        }                                                \
+        s->most_recently_written_fp_reg = (x);           \
+        s->fp_reg[x]                    = (val);         \
+        s->fs                           = 3;             \
+    })
+#define read_fp_reg(x)                                   \
+    ({                                                   \
+        if(s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_fp_regs.emplace_back(x);         \
+        }                                                \
+        s->fp_reg[x];                                    \
+    })
 
 /*
  * Boom/Rocket doesn't implement all bits in all CSRs but
@@ -161,6 +178,9 @@ static inline void track_write(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr,
 #ifdef GOLDMEM_INORDER
     s->last_data_value = data;
 #endif
+    if(s->machine->common.stf_in_traceable_region) {
+       s->stf_mem_writes.emplace_back(vaddr, size, data);
+    }
 }
 
 static inline uint64_t track_dread(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr, uint64_t data, int size) {
@@ -172,6 +192,13 @@ static inline uint64_t track_dread(RISCVCPUState *s, uint64_t vaddr, uint64_t pa
     s->last_data_size  = size;
     s->last_data_type  = 0;
     //printf("track.ld[%llx:%llx]=%llx\n", paddr, paddr+size-1, data);
+
+    if(s->machine->common.stf_in_traceable_region) {
+        // FIXME: Hack to prevent the tohost read from being traced everytime
+        if(vaddr != s->machine->htif_tohost_addr) {
+            s->stf_mem_reads.emplace_back(vaddr, size, data);
+        }
+    }
 
     return data;
 }
@@ -2335,6 +2362,15 @@ int riscv_benchmark_exit_code(RISCVCPUState *s) { return s->benchmark_exit_code;
 void riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info) { *info = s->info; }
 
 void riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target) { *target = s->next_addr; }
+
+void riscv_stf_reset(RISCVCPUState *s) {
+    s->stf_read_regs.clear();
+    s->stf_write_regs.clear();
+    s->stf_read_fp_regs.clear();
+    s->stf_write_fp_regs.clear();
+    s->stf_mem_reads.clear();
+    s->stf_mem_writes.clear();
+}
 
 BOOL riscv_terminated(RISCVCPUState *s) { return s->terminate_simulation; }
 

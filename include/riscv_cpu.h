@@ -44,6 +44,8 @@
 
 #include "riscv.h"
 
+#include <vector>
+
 #define ROM_SIZE       0x00002000
 #define ROM_BASE_ADDR  0x00010000
 #define BOOT_BASE_ADDR 0x00010000
@@ -332,6 +334,30 @@ typedef struct RISCVCPUState {
 
     /* Extension state, not used by Dromajo itself */
     void *ext_cpu_state;
+
+    /* STF Trace Generation State Capture */
+    std::vector<target_ulong> stf_read_regs;
+    std::vector<target_ulong> stf_write_regs;
+#if FLEN > 0
+    std::vector<fp_uint> stf_read_fp_regs;
+    std::vector<fp_uint> stf_write_fp_regs;
+#endif
+    struct stf_mem_access
+    {
+        target_ulong vaddr;
+        target_ulong size;
+        target_ulong value;
+
+        stf_mem_access(target_ulong va, target_ulong s, target_ulong val) :
+            vaddr(va),
+            size(s),
+            value(val)
+        {}
+    };
+    std::vector<stf_mem_access> stf_mem_reads;
+    std::vector<stf_mem_access> stf_mem_writes;
+    uint8_t stf_prev_priv_mode;
+
 } RISCVCPUState;
 
 RISCVCPUState *riscv_cpu_init(RISCVMachine *machine, int hartid);
@@ -359,6 +385,9 @@ int            riscv_get_most_recently_written_reg(RISCVCPUState *s);
 int            riscv_get_most_recently_written_fp_reg(RISCVCPUState *s);
 void           riscv_get_ctf_info(RISCVCPUState *s, RISCVCTFInfo *info);
 void           riscv_get_ctf_target(RISCVCPUState *s, uint64_t *target);
+
+/* STF Trace Generation */
+void riscv_stf_reset(RISCVCPUState *s);
 
 int  riscv_cpu_interp64(RISCVCPUState *s, int n_cycles);
 BOOL riscv_terminated(RISCVCPUState *s);

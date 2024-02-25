@@ -143,78 +143,20 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
 
-    //STF:The start OPC has been detected, throttle back n_cycles
-    if(m->common.stf_tracing_enabled) {
-      n_cycles = 1;
-    }
-
     if (m->common.trace < (unsigned) n_cycles) {
         n_cycles = 1;
         do_trace = true;
-    } else
+    }
+    else {
       m->common.trace -= n_cycles;
+    }
 
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
-    //STF:Trace the insn if the start OPC has been detected,
-    //do not trace the start or stop insn's
-    if(m->common.stf_tracing_enabled
-       && !m->common.stf_is_start_opc
-       && !m->common.stf_is_stop_opc)
-    {
-        RISCVCPUState *cpu = m->cpu_state[hartid];
-
-        if((priv == 0 || m->common.stf_no_priv_check)
-               && (cpu->pending_exception == -1)
-               && (m->common.stf_prog_asid == ((cpu->satp >> 4) & 0xFFFF)))
-        {
-
-            ++m->common.stf_count;
-            const uint32_t inst_width = ((insn_raw & 0x3) == 0x3) ? 4 : 2;
-            bool skip_record = false;
-
-            // See if the instruction changed control flow or a
-            // possible not-taken branch conditional
-            if(cpu->info != ctf_nop) {
-                stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
-            }
-            else {
-                // Not sure what's going on, but there's a
-                // possibility that the current instruction will
-                // cause a page fault or a timer interrupt or
-                // process switch so the next instruction might
-                // not be on the program's path
-                if(cpu->pc != last_pc + inst_width) {
-                    skip_record = true;
-                }
-            }
-
-            // Record the instruction trace record
-            if(false == skip_record)
-            {
-                // If the last instruction were a load/store,
-                // record the last vaddr, size, and if it were a
-                // read or write.
-
-                if(cpu->last_data_vaddr
-                    != std::numeric_limits<decltype(cpu->last_data_vaddr)>::max())
-                {
-                    stf_writer << stf::InstMemAccessRecord(cpu->last_data_vaddr,
-                                                           cpu->last_data_size,
-                                                           0,
-                                                           (cpu->last_data_type == 0) ?
-                                                           stf::INST_MEM_ACCESS::READ :
-                                                           stf::INST_MEM_ACCESS::WRITE);
-                    stf_writer << stf::InstMemContentRecord(0); // empty content for now
-                }
-
-                if(inst_width == 4) {
-                   stf_writer << stf::InstOpcode32Record(insn_raw);
-                }
-                else {
-                   stf_writer << stf::InstOpcode16Record(insn_raw & 0xFFFF);
-                }
-            }
+    if(m->common.stf_trace) {
+        // Returns true if current instruction should be traced
+        if(stf_trace_trigger(m, hartid, insn_raw)) {
+            stf_trace_element(m, hartid, priv, last_pc, insn_raw);
         }
     }
 
@@ -299,6 +241,19 @@ int main(int argc, char **argv) {
     execution_progress_meassure = &m->cpu_state[0]->minstret;
     signal(SIGINT, sigintr_handler);
 
+    /* STF Trace Generation */
+    if(m->common.stf_trace) {
+        // Throttle back n_cycles
+        n_cycles = 1;
+
+	/* If STF tracing is configured to trace the entire workload (i.e. no tracepoints,
+	 * no privilege mode checks) then the trace can be opened before execution starts.
+	 */
+	const int hartid = 0;
+	const uint32_t insn_raw = 0x0;
+        stf_trace_trigger(m, hartid, insn_raw);
+    }
+
     int keep_going;
     do {
         keep_going = 0;
@@ -319,6 +274,13 @@ int main(int argc, char **argv) {
             fprintf(dromajo_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
             return 1;
         }
+    }
+
+    /* STF Trace Generaetion
+     * Close the trace at the end of simulation (assume core 0 for now)
+     */
+    if(m->common.stf_trace_open) {
+        stf_trace_close(m, m->cpu_state[0]->last_pc);
     }
 
     fprintf(dromajo_stderr, "Simulation speed: %5.2f MIPS (single-core)\n",
