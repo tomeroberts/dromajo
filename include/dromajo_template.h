@@ -52,6 +52,9 @@
 #error unsupported XLEN
 #endif
 
+#include "dromajo_stf.h"
+#include <limits>
+
 static inline intx_t glue(div, XLEN)(intx_t a, intx_t b) {
     if (b == 0) {
         return -1;
@@ -278,15 +281,16 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
     }
 
     s->pending_exception = -1;
+    s->last_data_vaddr = std::numeric_limits<decltype(s->last_data_vaddr)>::max();
     n_cycles++;
     /* Note: we assume NULL is represented as a zero number */
     code_ptr          = NULL;
     code_end          = NULL;
     code_to_pc_addend = s->pc;
-
     /* we use a single execution loop to keep a simple control flow
        for emscripten */
     for (;;) {
+        s->last_pc = s->pc;
         s->pc = GET_PC();
         if (unlikely(!--n_cycles))
             goto the_end;
@@ -1807,6 +1811,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
         }
         /* update PC for next instruction */
     jump_insn:;
+
     } /* end of main loop */
 illegal_insn:
     s->pending_exception = CAUSE_ILLEGAL_INSTRUCTION;

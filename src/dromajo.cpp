@@ -46,6 +46,9 @@
 #include "dromajo_cosim.h"
 #endif
 
+#include "dromajo_stf.h"
+#include <limits>
+
 #ifdef SIMPOINT_BB
 FILE *simpoint_bb_file = nullptr;
 int   simpoint_roi     = 0;  // start without ROI enabled
@@ -147,6 +150,13 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     int keep_going = virt_machine_run(m, hartid, n_cycles);
 
+    if(m->common.stf_trace) {
+        // Returns true if current instruction should be traced
+        if(stf_trace_trigger(m, hartid, insn_raw)) {
+            stf_trace_element(m, hartid, priv, last_pc, insn_raw);
+        }
+    }
+
     if (!do_trace) {
         return keep_going;
     }
@@ -227,6 +237,19 @@ int main(int argc, char **argv) {
     execution_progress_meassure = &m->cpu_state[0]->minstret;
     signal(SIGINT, sigintr_handler);
 
+    /* STF Trace Generation */
+    if(m->common.stf_trace) {
+        // Throttle back n_cycles
+        n_cycles = 1;
+
+	/* If STF tracing is configured to trace the entire workload (i.e. no tracepoints,
+	 * no privilege mode checks) then the trace can be opened before execution starts.
+	 */
+	const int hartid = 0;
+	const uint32_t insn_raw = 0x0;
+        stf_trace_trigger(m, hartid, insn_raw);
+    }
+
     int keep_going;
     do {
         keep_going = 0;
@@ -247,6 +270,13 @@ int main(int argc, char **argv) {
             fprintf(dromajo_stderr, "\nBenchmark exited with code: %i \n", benchmark_exit_code);
             return 1;
         }
+    }
+
+    /* STF Trace Generaetion
+     * Close the trace at the end of simulation (assume core 0 for now)
+     */
+    if(m->common.stf_trace_open) {
+        stf_trace_close(m, m->cpu_state[0]->last_pc);
     }
 
     fprintf(dromajo_stderr,
