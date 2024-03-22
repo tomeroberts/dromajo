@@ -558,6 +558,7 @@ static void usage(const char *prog, const char *msg) {
             "       --ncpus number of cpus to simulate (default 1)\n"
             "       --load resumes a previously saved snapshot\n"
             "       --simpoint reads a simpoint file to create multiple checkpoints\n"
+            "       --simpoint_trace create stf trace files instead of checkpoints\n"
             "       --save saves a snapshot upon exit\n"
             "       --maxinsns terminates execution after a number of instructions\n"
             "       --terminate-event name of the validate event to terminate execution\n"
@@ -647,6 +648,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     uint64_t    clint_size_override      = 0;
     bool        custom_extension         = false;
     const char *simpoint_file            = 0;
+    bool        simpoint_trace           = false;
     bool        clear_ids                = false;
 #ifdef LIVECACHE
     uint64_t live_cache_size = 8 * 1024 * 1024;
@@ -668,6 +670,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
             {"load",                        required_argument, 0,  'l' },
             {"save",                        required_argument, 0,  's' },
             {"simpoint",                    required_argument, 0,  'S' },
+            {"simpoint_trace",                    no_argument, 0,  'T' },
             {"maxinsns",                    required_argument, 0,  'm' }, // CFG
             {"trace   ",                    required_argument, 0,  't' },
             {"stf_trace",                   required_argument, 0,  'z' },
@@ -731,6 +734,8 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
                     usage(prog, "already had a simpoint file");
                 simpoint_file = strdup(optarg);
                 break;
+
+            case 'T': simpoint_trace = true; break;
 
             case 'm':
                 if (maxinsns)
@@ -1067,7 +1072,7 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
 
         std::sort(s->common.simpoints.begin(), s->common.simpoints.end());
         for (auto sp : s->common.simpoints) {
-            printf("simpoint %d starts at %dK\n", sp.id, (int)sp.start / 1000);
+            printf("simpoint %d starts at %luK\n", sp.id, sp.start / 1000);
         }
 
         if (s->common.simpoints.empty()) {
@@ -1075,6 +1080,19 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
             exit(1);
         }
         s->common.simpoint_next = 0;
+#else
+        fprintf(stderr, "simpoint flag requires to recompile with SIMPOINT_BB\n");
+        exit(1);
+#endif
+    }
+
+    if (simpoint_trace) {
+#ifdef SIMPOINT_BB
+        if (!simpoint_file) {
+            fprintf(stderr, "No simpoint file specified\n");
+            exit(1);
+        }
+        s->common.simpoint_trace = true;
 #else
         fprintf(stderr, "simpoint flag requires to recompile with SIMPOINT_BB\n");
         exit(1);

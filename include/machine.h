@@ -119,6 +119,7 @@ typedef struct {
 
 #ifdef SIMPOINT_BB
 #include <vector>
+#include <unordered_map>
 struct Simpoint {
     Simpoint(uint64_t i, int j) : start(i), id(j) {}
     bool operator<(const Simpoint &j) const { return (start < j.start); }
@@ -199,6 +200,9 @@ typedef struct VirtMachine {
 #ifdef SIMPOINT_BB
     uint32_t              simpoint_next;
     std::vector<Simpoint> simpoints;
+    std::unordered_map<uint64_t, int> bbv;
+    uint64_t bbv_ninst;
+    bool simpoint_trace;
 #endif
 
     char *   snapshot_load_name;

@@ -53,26 +53,50 @@
 FILE *simpoint_bb_file = nullptr;
 int   simpoint_roi     = 0;  // start without ROI enabled
 
-int simpoint_step(RISCVMachine *m, int hartid) {
+static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
     assert(hartid == 0);  // Only single core for simpoint creation
 
     static uint64_t ninst = 0;  // ninst in BB
-    ninst++;
+    static uint64_t sp_inst = 0;
+    ninst += *n_cycles;
+    sp_inst += *n_cycles;
 
     if (simpoint_bb_file == 0) {  // Creating checkpoints mode
 
         assert(!m->common.simpoints.empty());
 
-        auto &sp = m->common.simpoints[m->common.simpoint_next];
-        if (ninst > sp.start) {
-            char str[100];
-            sprintf(str, "sp%d", sp.id);
-            virt_machine_serialize(m, str);
-
-            m->common.simpoint_next++;
+        if (m->common.simpoint_trace && m->common.stf_in_traceable_region && (sp_inst >= SIMPOINT_SIZE)) {
+            m->common.stf_in_traceable_region = false;
+            fprintf(dromajo_stderr, "Simpoint: %d ended\n", m->common.simpoints[m->common.simpoint_next-1].id);
+            stf_trace_close(m, m->cpu_state[0]->last_pc);
+            free((char*)m->common.stf_trace);
+            m->common.stf_trace = NULL;
+            m->common.stf_count = 0;
+            *n_cycles = 10000;
             if (m->common.simpoint_next == m->common.simpoints.size()) {
                 return 0;  // notify to terminate nicely
             }
+        }
+
+        auto &sp = m->common.simpoints[m->common.simpoint_next];
+        if (ninst > sp.start) {
+            fprintf(dromajo_stderr, "Simpoint: %d Reached\n", sp.id);
+            if (m->common.simpoint_trace) {
+                char str[100];
+                sprintf(str, "sp%d.zstf", sp.id);
+                // Start tracing
+                sp_inst = 0;
+                m->common.stf_in_traceable_region = true;
+                m->common.stf_trace = strdup(str);
+                stf_trace_open(m, 0, m->cpu_state[0]->last_pc);
+                *n_cycles = 1;
+            } else {
+                char str[100];
+                sprintf(str, "sp%d", sp.id);
+                virt_machine_serialize(m, str);
+            }
+
+            m->common.simpoint_next++;
         }
         return 1;
     }
@@ -80,9 +104,7 @@ int simpoint_step(RISCVMachine *m, int hartid) {
     // Creating bb trace mode
     assert(m->common.simpoints.empty());
 
-    uint64_t                                 pc            = virt_machine_get_pc(m, hartid);
     static uint64_t                          next_bbv_dump = UINT64_MAX;
-    static std::unordered_map<uint64_t, int> bbv;
     static std::unordered_map<uint64_t, int> pc2id;
     static int                               next_id = 1;
     if (m->common.maxinsns <= next_bbv_dump) {
@@ -91,9 +113,9 @@ int simpoint_step(RISCVMachine *m, int hartid) {
         else
             next_bbv_dump = 0;
 
-        if (bbv.size()) {
+        if (m->common.bbv.size()) {
             fprintf(simpoint_bb_file, "T");
-            for (const auto ent : bbv) {
+            for (const auto ent : m->common.bbv) {
                 auto it = pc2id.find(ent.first);
                 int  id = 0;
                 if (it == pc2id.end()) {
@@ -108,17 +130,9 @@ int simpoint_step(RISCVMachine *m, int hartid) {
             }
             fprintf(simpoint_bb_file, "\n");
             fflush(simpoint_bb_file);
-            bbv.clear();
+            m->common.bbv.clear();
         }
     }
-
-    static uint64_t last_pc = 0;
-    if ((last_pc + 2) != pc && (last_pc + 4) != pc) {
-        bbv[last_pc] += ninst;
-        // fprintf(simpoint_bb_file,"xxxBB 0x%" PRIx64 " %d\n", pc, ninst);
-        ninst = 0;
-    }
-    last_pc = pc;
 
     return 1;
 }
@@ -221,6 +235,7 @@ int main(int argc, char **argv) {
 
 #ifdef SIMPOINT_BB
     if (m->common.simpoints.empty()) {
+        m->common.bbv_ninst = 0;
         simpoint_bb_file = fopen("dromajo_simpoint.bb", "w");
         if (simpoint_bb_file == nullptr) {
             fprintf(dromajo_stderr, "\nerror: could not open dromajo_simpoint.bb for dumping trace\n");
@@ -256,12 +271,17 @@ int main(int argc, char **argv) {
         for (int i = 0; i < m->ncpus; ++i) keep_going |= iterate_core(m, i, n_cycles);
 #ifdef SIMPOINT_BB
         if (simpoint_roi) {
-            if (!simpoint_step(m, 0))
+            if (!simpoint_step(m, 0, &n_cycles))
                 break;
         }
 #endif
     } while (keep_going);
 
+#ifdef SIMPOINT_BB
+    if (m->common.simpoints.empty()) {
+        fclose(simpoint_bb_file);
+    }
+#endif
     double t = get_current_time_in_seconds();
 
     for (int i = 0; i < m->ncpus; ++i) {

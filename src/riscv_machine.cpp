@@ -1146,7 +1146,7 @@ static void dump_dram(RISCVMachine *s, FILE *f[16], const char *region, uint64_t
 RISCVMachine *virt_machine_init(const VirtMachineParams *p) {
     int           irq_num, i;
     VIRTIOBusDef  vbus_s, *vbus = &vbus_s;
-    RISCVMachine *s = (RISCVMachine *)mallocz(sizeof *s);
+    RISCVMachine *s = new RISCVMachine();
 
     s->ram_size      = p->ram_size;
     s->ram_base_addr = p->ram_base_addr;
@@ -1403,7 +1403,7 @@ void virt_machine_end(RISCVMachine *s) {
     }
 
     phys_mem_map_end(s->mem_map);
-    free(s);
+    delete s;
 }
 
 static inline void serialize_plic(RISCVMachine *m, JSONValue devs_json) {

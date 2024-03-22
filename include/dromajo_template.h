@@ -214,6 +214,21 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b) {
 #define NEXT_INSN  \
     code_ptr += 4; \
     break
+#ifdef SIMPOINT_BB
+#define JUMP_INSN(kind)                                                         \
+    do {                                                                        \
+        code_ptr          = NULL;                                               \
+        code_end          = NULL;                                               \
+        code_to_pc_addend = s->pc;                                              \
+        s->info           = kind;                                               \
+        s->next_addr      = s->pc;                                              \
+        if (simpoint_roi) {                                                     \
+            s->machine->common.bbv[s->last_pc] += s->machine->common.bbv_ninst; \
+            s->machine->common.bbv_ninst = 0;                                   \
+        }                                                                       \
+        goto jump_insn;                                                         \
+    } while (0)
+#else
 #define JUMP_INSN(kind)            \
     do {                           \
         code_ptr          = NULL;  \
@@ -223,6 +238,7 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b) {
         s->next_addr      = s->pc; \
         goto jump_insn;            \
     } while (0)
+#endif
 
 #define chkfp32 glue(chkfp32, XLEN)
 
@@ -295,6 +311,9 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
         if (unlikely(!--n_cycles))
             goto the_end;
 
+#ifdef SIMPOINT_BB
+        ++s->machine->common.bbv_ninst;
+#endif
         ++insn_executed;
 
         if (check_triggers(s, MCONTROL_EXECUTE, s->pc))
