@@ -120,8 +120,8 @@ static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
                 int  id = 0;
                 if (it == pc2id.end()) {
                     id = next_id;
-                    next_id++;
                     pc2id[ent.first] = next_id;
+                    next_id++;
                 } else {
                     id = it->second;
                 }

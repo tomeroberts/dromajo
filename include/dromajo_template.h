@@ -223,7 +223,8 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b) {
         s->info           = kind;                                               \
         s->next_addr      = s->pc;                                              \
         if (simpoint_roi) {                                                     \
-            s->machine->common.bbv[s->last_pc] += s->machine->common.bbv_ninst; \
+            uint64_t bbv_hash = s->last_pc ^ s->machine->common.bbv_ninst;      \
+            s->machine->common.bbv[bbv_hash] += s->machine->common.bbv_ninst;   \
             s->machine->common.bbv_ninst = 0;                                   \
         }                                                                       \
         goto jump_insn;                                                         \
