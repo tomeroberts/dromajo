@@ -307,7 +307,6 @@ static inline bool check_triggers(RISCVCPUState *s, target_ulong t_mctl, target_
             *fail = true;                                                                            \
             return;                                                                                  \
         }                                                                                            \
-        track_write(s, paddr, paddr, val, size);                                                     \
         *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr)) = val;                          \
         *fail                                                        = false;                        \
     }                                                                                                \
@@ -319,7 +318,6 @@ static inline bool check_triggers(RISCVCPUState *s, target_ulong t_mctl, target_
             return 0;                                                                                \
         }                                                                                            \
         uint_type pval = *(uint_type *)(pr->phys_mem + (uintptr_t)(paddr - pr->addr));               \
-        pval           = track_dread(s, paddr, paddr, pval, size);                                   \
         *fail          = false;                                                                      \
         return pval;                                                                                 \
     }
