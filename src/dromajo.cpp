@@ -152,7 +152,7 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
      */
     uint64_t last_pc  = virt_machine_get_pc(m, hartid);
     int      priv     = riscv_get_priv_level(cpu);
-    uint32_t insn_raw = -1;
+    uint32_t insn_raw = 0;
     bool     do_trace = false;
     int      insn_executed;
 
