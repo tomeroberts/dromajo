@@ -154,6 +154,7 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     int      priv     = riscv_get_priv_level(cpu);
     uint32_t insn_raw = -1;
     bool     do_trace = false;
+    int      insn_executed;
 
     (void)riscv_read_insn(cpu, &insn_raw, last_pc);
     if (m->common.trace < (unsigned)n_cycles) {
@@ -162,12 +163,12 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
     } else
         m->common.trace -= n_cycles;
 
-    int keep_going = virt_machine_run(m, hartid, n_cycles);
+    int keep_going = virt_machine_run(m, hartid, n_cycles, &insn_executed);
 
     if(m->common.stf_trace) {
         // Returns true if current instruction should be traced
         if(stf_trace_trigger(m, hartid, insn_raw)) {
-            stf_trace_element(m, hartid, priv, last_pc, insn_raw);
+            stf_trace_element(m, hartid, priv, last_pc, insn_raw, insn_executed > 0);
         }
     }
 

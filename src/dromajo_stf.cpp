@@ -26,7 +26,8 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
 {
     RISCVCPUState * cpu = m->cpu_state[hartid];
 
-    stf_writer << stf::ForcePCRecord(last_pc);
+    stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
+    stf_writer << stf::ForcePCRecord(virt_machine_get_pc(m, 0));
 
     if(m->common.stf_essential_mode == false) {
         // Record integer registers
@@ -49,7 +50,7 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
     // TODO: CSRs
 }
 
-void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn)
+void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn, bool insn_executed)
 {
     RISCVCPUState * cpu = m->cpu_state[hartid];
     const uint64_t current_pc = cpu->pc;
@@ -57,8 +58,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     ++(m->common.stf_count);
     const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
 
-    // PC target (change of flow)
-    if(current_pc != last_pc + inst_width) {
+    if(insn_executed && (current_pc != last_pc + inst_width)) {
         stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
     }
 
@@ -73,9 +73,9 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
 #if FLEN > 0
         for(auto fp_reg_src : cpu->stf_read_fp_regs) {
             stf_writer << stf::InstRegRecord(fp_reg_src,
-                                         stf::Registers::STF_REG_TYPE::FLOATING_POINT,
-                                         stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
-                                         riscv_get_reg(cpu, fp_reg_src));
+                                             stf::Registers::STF_REG_TYPE::FLOATING_POINT,
+                                             stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
+                                             riscv_get_reg(cpu, fp_reg_src));
         }
 #endif
         // Destination registers
@@ -84,7 +84,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
                                              stf::Registers::STF_REG_TYPE::INTEGER,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
                                              riscv_get_reg(cpu, int_reg_dst));
-            }
+        }
 #if FLEN > 0
         for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
             stf_writer << stf::InstRegRecord(fp_reg_dst,
@@ -114,18 +114,20 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     // Privilege mode change
     if(cpu->stf_prev_priv_mode != cpu->priv) {
         stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
+        stf_writer << stf::EventPCTargetRecord(virt_machine_get_pc(m, 0));
         cpu->stf_prev_priv_mode = cpu->priv;
     }
     // Traps or exceptions
-    if(cpu->pending_exception != -1) {
+    if (cpu->pending_exception != -1) {
         stf_writer << stf::EventRecord(stf::EventRecord::TYPE(cpu->pending_exception), (uint64_t)0);
+        stf_writer << stf::EventPCTargetRecord(virt_machine_get_pc(m, 0));
     }
     // Opcode (instruction)
     if(inst_width == 4) {
-       stf_writer << stf::InstOpcode32Record(insn);
+        stf_writer << stf::InstOpcode32Record(insn);
     }
     else {
-       stf_writer << stf::InstOpcode16Record(insn & 0xFFFF);
+        stf_writer << stf::InstOpcode16Record(insn & 0xFFFF);
     }
 
     // Reset
