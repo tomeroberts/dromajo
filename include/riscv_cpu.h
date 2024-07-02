@@ -357,6 +357,7 @@ typedef struct RISCVCPUState {
     std::vector<stf_mem_access> stf_mem_reads;
     std::vector<stf_mem_access> stf_mem_writes;
     uint8_t stf_prev_priv_mode;
+    uint16_t stf_prev_asid;
 
 } RISCVCPUState;
 

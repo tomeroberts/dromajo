@@ -26,6 +26,10 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
 {
     RISCVCPUState * cpu = m->cpu_state[hartid];
 
+    cpu->stf_prev_priv_mode = cpu->priv;
+    cpu->stf_prev_asid = (cpu->satp >> 4) & 0xFFFF;
+
+    stf_writer << stf::ProcessIDExtRecord(0, (uint32_t)cpu->stf_prev_asid, 0); // Log ASID as the process ID
     stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
     stf_writer << stf::ForcePCRecord(virt_machine_get_pc(m, 0));
 
@@ -54,10 +58,15 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
 {
     RISCVCPUState * cpu = m->cpu_state[hartid];
     const uint64_t current_pc = cpu->pc;
+    const uint16_t current_asid = (cpu->satp >> 4) & 0xFFFF;
 
     ++(m->common.stf_count);
     const uint32_t inst_width = ((insn & 0x3) == 0x3) ? 4 : 2;
 
+    if (unlikely(current_asid != cpu->stf_prev_asid)) {
+        stf_writer << stf::ProcessIDExtRecord(0, (uint32_t)current_asid, 0);
+        cpu->stf_prev_asid = current_asid;
+    }
     if(insn_executed && (current_pc != last_pc + inst_width)) {
         stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
     }
@@ -157,9 +166,9 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
     in_traceable_region &= \
         riscv_get_priv_level(m->cpu_state[hartid]) <= m->common.stf_highest_priv_mode;
 
-    // Are we executing the expected thread?
+    // Are we executing the expected thread? - ignore for simpoints
     const uint64_t asid = (m->cpu_state[hartid]->satp >> 4) & 0xFFFF;
-    in_traceable_region &= m->common.stf_prog_asid == asid;
+    in_traceable_region &= (m->common.stf_in_tracepoint_region || m->common.stf_prog_asid == asid);
 
     const bool entering_traceable_region = \
         in_traceable_region && (m->common.stf_in_traceable_region == false);
@@ -177,7 +186,7 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
         if(m->common.stf_trace_open == false) {
             stf_trace_open(m, hartid, pc);
         }
-	else {
+        else {
             stf_record_state(m, hartid, pc);
         }
     }
