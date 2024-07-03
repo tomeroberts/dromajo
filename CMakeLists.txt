@@ -59,10 +59,15 @@ add_compile_options(
         -D_LARGEFILE_SOURCE
         -D_GNU_SOURCE
         -D__STDC_FORMAT_MACROS
+        -march=native -mtune=native
+        -flto
 )
 
-# XXX -O is a temporary workaround for issue #77 (gcc miscompilation on -Ofast)
-add_compile_options($<$<CONFIG:Release>:-O>)
+add_link_options(
+        -flto
+)
+
+add_compile_options($<$<CONFIG:Release>:-Ofast>)
 
 if (TRACEOS)
     message(STATUS "TRACEOS is on.")
