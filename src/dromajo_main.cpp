@@ -76,9 +76,8 @@
 #ifdef CONFIG_SLIRP
 #include "slirp/libslirp.h"
 #endif
-#include "elf64.h"
-
 #include "dromajo_stf.h"
+#include "elf64.h"
 
 FILE *dromajo_stdout;
 FILE *dromajo_stderr;
@@ -494,7 +493,7 @@ static EthernetDevice *slirp_open(void) {
 BOOL virt_machine_run(RISCVMachine *s, int hartid, int n_cycles, int *insn_executed) {
     (void)virt_machine_get_sleep_duration(s, hartid, MAX_SLEEP_TIME);
 
-    *insn_executed = riscv_cpu_interp64(s->cpu_state[hartid], n_cycles);
+    *insn_executed     = riscv_cpu_interp64(s->cpu_state[hartid], n_cycles);
     RISCVCPUState *cpu = s->cpu_state[hartid];
     if (s->htif_tohost_addr) {
         uint32_t tohost;
@@ -619,14 +618,14 @@ static bool load_elf_and_fake_the_config(VirtMachineParams *p, const char *path)
 }
 
 RISCVMachine *virt_machine_main(int argc, char **argv) {
-    const char *prog                     = argv[0];
-    char *      snapshot_load_name       = 0;
-    char *      snapshot_save_name       = 0;
-    const char *path                     = NULL;
-    const char *cmdline                  = NULL;
-    long        ncpus                    = 0;
-    uint64_t    maxinsns                 = 0;
-    uint64_t    trace                    = UINT64_MAX;
+    const char *prog                        = argv[0];
+    char *      snapshot_load_name          = 0;
+    char *      snapshot_save_name          = 0;
+    const char *path                        = NULL;
+    const char *cmdline                     = NULL;
+    long        ncpus                       = 0;
+    uint64_t    maxinsns                    = 0;
+    uint64_t    trace                       = UINT64_MAX;
     const char *stf_trace                   = nullptr;
     bool        stf_exit_on_stop_opc        = false;
     bool        stf_essential_mode          = false;
@@ -1103,20 +1102,16 @@ RISCVMachine *virt_machine_main(int argc, char **argv) {
     s->common.trace              = trace;
 
     /* STF Trace Generation */
-    auto get_stf_highest_priv_mode = [](const char * stf_priv_modes) -> int {
-        if(strcmp(stf_priv_modes, "USHM") == 0) {
+    auto get_stf_highest_priv_mode = [](const char *stf_priv_modes) -> int {
+        if (strcmp(stf_priv_modes, "USHM") == 0) {
             return PRV_M;
-        }
-        else if(strcmp(stf_priv_modes, "USH") == 0) {
+        } else if (strcmp(stf_priv_modes, "USH") == 0) {
             return PRV_H;
-        }
-        else if(strcmp(stf_priv_modes, "US") == 0) {
+        } else if (strcmp(stf_priv_modes, "US") == 0) {
             return PRV_S;
-        }
-        else if(strcmp(stf_priv_modes, "U") == 0) {
+        } else if (strcmp(stf_priv_modes, "U") == 0) {
             return PRV_U;
-        }
-        else {
+        } else {
             fprintf(stderr, "invalid stf privilege modes '%s'\n", stf_priv_modes);
             exit(1);
         }

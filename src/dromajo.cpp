@@ -46,8 +46,9 @@
 #include "dromajo_cosim.h"
 #endif
 
-#include "dromajo_stf.h"
 #include <limits>
+
+#include "dromajo_stf.h"
 
 #ifdef SIMPOINT_BB
 FILE *simpoint_bb_file = nullptr;
@@ -56,7 +57,7 @@ int   simpoint_roi     = 0;  // start without ROI enabled
 static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
     assert(hartid == 0);  // Only single core for simpoint creation
 
-    static uint64_t ninst = 0;  // ninst in BB
+    static uint64_t ninst   = 0;  // ninst in BB
     static uint64_t sp_inst = 0;
     ninst += *n_cycles;
     sp_inst += *n_cycles;
@@ -67,12 +68,12 @@ static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
 
         if (m->common.simpoint_trace && m->common.stf_in_traceable_region && (sp_inst >= SIMPOINT_SIZE)) {
             m->common.stf_in_traceable_region = false;
-            fprintf(dromajo_stderr, "Simpoint: %d ended\n", m->common.simpoints[m->common.simpoint_next-1].id);
+            fprintf(dromajo_stderr, "Simpoint: %d ended\n", m->common.simpoints[m->common.simpoint_next - 1].id);
             stf_trace_close(m, m->cpu_state[0]->last_pc);
-            free((char*)m->common.stf_trace);
+            free((char *)m->common.stf_trace);
             m->common.stf_trace = NULL;
             m->common.stf_count = 0;
-            *n_cycles = 10000;
+            *n_cycles           = 10000;
             if (m->common.simpoint_next == m->common.simpoints.size()) {
                 return 0;  // notify to terminate nicely
             }
@@ -85,9 +86,9 @@ static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
                 char str[100];
                 sprintf(str, "sp%d.zstf", sp.id);
                 // Start tracing
-                sp_inst = 0;
+                sp_inst                           = 0;
                 m->common.stf_in_traceable_region = true;
-                m->common.stf_trace = strdup(str);
+                m->common.stf_trace               = strdup(str);
                 stf_trace_open(m, 0, m->cpu_state[0]->last_pc);
                 *n_cycles = 1;
             } else {
@@ -119,7 +120,7 @@ static int simpoint_step(RISCVMachine *m, int hartid, int *n_cycles) {
                 auto it = pc2id.find(ent.first);
                 int  id = 0;
                 if (it == pc2id.end()) {
-                    id = next_id;
+                    id               = next_id;
                     pc2id[ent.first] = next_id;
                     next_id++;
                 } else {
@@ -165,9 +166,9 @@ static int iterate_core(RISCVMachine *m, int hartid, int n_cycles) {
 
     int keep_going = virt_machine_run(m, hartid, n_cycles, &insn_executed);
 
-    if(m->common.stf_trace) {
+    if (m->common.stf_trace) {
         // Returns true if current instruction should be traced
-        if(stf_trace_trigger(m, hartid, insn_raw)) {
+        if (stf_trace_trigger(m, hartid, insn_raw)) {
             stf_trace_element(m, hartid, priv, last_pc, insn_raw, insn_executed > 0);
         }
     }
@@ -237,7 +238,7 @@ int main(int argc, char **argv) {
 #ifdef SIMPOINT_BB
     if (m->common.simpoints.empty()) {
         m->common.bbv_ninst = 0;
-        simpoint_bb_file = fopen("dromajo_simpoint.bb", "w");
+        simpoint_bb_file    = fopen("dromajo_simpoint.bb", "w");
         if (simpoint_bb_file == nullptr) {
             fprintf(dromajo_stderr, "\nerror: could not open dromajo_simpoint.bb for dumping trace\n");
             exit(-3);
@@ -254,15 +255,15 @@ int main(int argc, char **argv) {
     signal(SIGINT, sigintr_handler);
 
     /* STF Trace Generation */
-    if(m->common.stf_trace) {
+    if (m->common.stf_trace) {
         // Throttle back n_cycles
         n_cycles = 1;
 
-	/* If STF tracing is configured to trace the entire workload (i.e. no tracepoints,
-	 * no privilege mode checks) then the trace can be opened before execution starts.
-	 */
-	const int hartid = 0;
-	const uint32_t insn_raw = 0x0;
+        /* If STF tracing is configured to trace the entire workload (i.e. no tracepoints,
+         * no privilege mode checks) then the trace can be opened before execution starts.
+         */
+        const int      hartid   = 0;
+        const uint32_t insn_raw = 0x0;
         stf_trace_trigger(m, hartid, insn_raw);
     }
 
@@ -296,7 +297,7 @@ int main(int argc, char **argv) {
     /* STF Trace Generaetion
      * Close the trace at the end of simulation (assume core 0 for now)
      */
-    if(m->common.stf_trace_open) {
+    if (m->common.stf_trace_open) {
         stf_trace_close(m, m->cpu_state[0]->last_pc);
     }
 

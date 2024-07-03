@@ -9,11 +9,11 @@
 #ifdef __riscv
 
 #ifndef START_TRACE
-#define START_TRACE   asm("xor x0, x0, x0");
+#define START_TRACE asm("xor x0, x0, x0");
 #endif
 
 #ifndef STOP_TRACE
-#define STOP_TRACE   asm("xor x0, x1, x1");
+#define STOP_TRACE asm("xor x0, x1, x1");
 #endif
 
 #else
@@ -27,7 +27,7 @@
 #endif
 
 #ifndef STOP_TRACE_OPC
-#define STOP_TRACE_OPC  0x0010c033
+#define STOP_TRACE_OPC 0x0010c033
 #endif
 
 #endif

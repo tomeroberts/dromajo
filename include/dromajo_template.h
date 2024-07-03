@@ -52,8 +52,9 @@
 #error unsupported XLEN
 #endif
 
-#include "dromajo_stf.h"
 #include <limits>
+
+#include "dromajo_stf.h"
 
 static inline intx_t glue(div, XLEN)(intx_t a, intx_t b) {
     if (b == 0) {
@@ -215,19 +216,19 @@ static inline uintx_t glue(mulhsu, XLEN)(intx_t a, uintx_t b) {
     code_ptr += 4; \
     break
 #ifdef SIMPOINT_BB
-#define JUMP_INSN(kind)                                                         \
-    do {                                                                        \
-        code_ptr          = NULL;                                               \
-        code_end          = NULL;                                               \
-        code_to_pc_addend = s->pc;                                              \
-        s->info           = kind;                                               \
-        s->next_addr      = s->pc;                                              \
-        if (simpoint_roi) {                                                     \
-            uint64_t bbv_hash = s->last_pc ^ s->machine->common.bbv_ninst;      \
-            s->machine->common.bbv[bbv_hash] += s->machine->common.bbv_ninst;   \
-            s->machine->common.bbv_ninst = 0;                                   \
-        }                                                                       \
-        goto jump_insn;                                                         \
+#define JUMP_INSN(kind)                                                       \
+    do {                                                                      \
+        code_ptr          = NULL;                                             \
+        code_end          = NULL;                                             \
+        code_to_pc_addend = s->pc;                                            \
+        s->info           = kind;                                             \
+        s->next_addr      = s->pc;                                            \
+        if (simpoint_roi) {                                                   \
+            uint64_t bbv_hash = s->last_pc ^ s->machine->common.bbv_ninst;    \
+            s->machine->common.bbv[bbv_hash] += s->machine->common.bbv_ninst; \
+            s->machine->common.bbv_ninst = 0;                                 \
+        }                                                                     \
+        goto jump_insn;                                                       \
     } while (0)
 #else
 #define JUMP_INSN(kind)            \
@@ -298,7 +299,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
     }
 
     s->pending_exception = -1;
-    s->last_data_vaddr = std::numeric_limits<decltype(s->last_data_vaddr)>::max();
+    s->last_data_vaddr   = std::numeric_limits<decltype(s->last_data_vaddr)>::max();
     n_cycles++;
     /* Note: we assume NULL is represented as a zero number */
     code_ptr          = NULL;
@@ -308,7 +309,7 @@ int no_inline glue(riscv_cpu_interp, XLEN)(RISCVCPUState *s, int n_cycles) {
        for emscripten */
     for (;;) {
         s->last_pc = s->pc;
-        s->pc = GET_PC();
+        s->pc      = GET_PC();
         if (unlikely(!--n_cycles))
             goto the_end;
 

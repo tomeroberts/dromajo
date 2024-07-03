@@ -22,20 +22,19 @@
 #include "dromajo_stf.h"
 stf::STFWriter stf_writer;
 
-void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
-{
-    RISCVCPUState * cpu = m->cpu_state[hartid];
+void stf_record_state(RISCVMachine* m, int hartid, uint64_t last_pc) {
+    RISCVCPUState* cpu = m->cpu_state[hartid];
 
     cpu->stf_prev_priv_mode = cpu->priv;
-    cpu->stf_prev_asid = (cpu->satp >> 4) & 0xFFFF;
+    cpu->stf_prev_asid      = (cpu->satp >> 4) & 0xFFFF;
 
-    stf_writer << stf::ProcessIDExtRecord(0, (uint32_t)cpu->stf_prev_asid, 0); // Log ASID as the process ID
+    stf_writer << stf::ProcessIDExtRecord(0, (uint32_t)cpu->stf_prev_asid, 0);  // Log ASID as the process ID
     stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
     stf_writer << stf::ForcePCRecord(virt_machine_get_pc(m, 0));
 
-    if(m->common.stf_essential_mode == false) {
+    if (m->common.stf_essential_mode == false) {
         // Record integer registers
-        for(int rn = 0; rn < 32; ++rn) {
+        for (int rn = 0; rn < 32; ++rn) {
             stf_writer << stf::InstRegRecord(rn,
                                              stf::Registers::STF_REG_TYPE::INTEGER,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
@@ -43,7 +42,7 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
         }
 #if FLEN > 0
         // Record floating point registers
-        for(int rn = 0; rn < 32; ++rn) {
+        for (int rn = 0; rn < 32; ++rn) {
             stf_writer << stf::InstRegRecord(rn,
                                              stf::Registers::STF_REG_TYPE::FLOATING_POINT,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_STATE,
@@ -54,10 +53,9 @@ void stf_record_state(RISCVMachine * m, int hartid, uint64_t last_pc)
     // TODO: CSRs
 }
 
-void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc, uint32_t insn, bool insn_executed)
-{
-    RISCVCPUState * cpu = m->cpu_state[hartid];
-    const uint64_t current_pc = cpu->pc;
+void stf_trace_element(RISCVMachine* m, int hartid, int priv, uint64_t last_pc, uint32_t insn, bool insn_executed) {
+    RISCVCPUState* cpu          = m->cpu_state[hartid];
+    const uint64_t current_pc   = cpu->pc;
     const uint16_t current_asid = (cpu->satp >> 4) & 0xFFFF;
 
     ++(m->common.stf_count);
@@ -67,20 +65,20 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
         stf_writer << stf::ProcessIDExtRecord(0, (uint32_t)current_asid, 0);
         cpu->stf_prev_asid = current_asid;
     }
-    if(insn_executed && (current_pc != last_pc + inst_width)) {
+    if (insn_executed && (current_pc != last_pc + inst_width)) {
         stf_writer << stf::InstPCTargetRecord(virt_machine_get_pc(m, 0));
     }
 
-    if(m->common.stf_essential_mode == false) {
+    if (m->common.stf_essential_mode == false) {
         // Source registers
-        for(auto int_reg_src : cpu->stf_read_regs) {
+        for (auto int_reg_src : cpu->stf_read_regs) {
             stf_writer << stf::InstRegRecord(int_reg_src,
                                              stf::Registers::STF_REG_TYPE::INTEGER,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
                                              riscv_get_reg(cpu, int_reg_src));
         }
 #if FLEN > 0
-        for(auto fp_reg_src : cpu->stf_read_fp_regs) {
+        for (auto fp_reg_src : cpu->stf_read_fp_regs) {
             stf_writer << stf::InstRegRecord(fp_reg_src,
                                              stf::Registers::STF_REG_TYPE::FLOATING_POINT,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_SOURCE,
@@ -88,14 +86,14 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
         }
 #endif
         // Destination registers
-        for(auto int_reg_dst : cpu->stf_write_regs) {
+        for (auto int_reg_dst : cpu->stf_write_regs) {
             stf_writer << stf::InstRegRecord(int_reg_dst,
                                              stf::Registers::STF_REG_TYPE::INTEGER,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
                                              riscv_get_reg(cpu, int_reg_dst));
         }
 #if FLEN > 0
-        for(auto fp_reg_dst : cpu->stf_write_fp_regs) {
+        for (auto fp_reg_dst : cpu->stf_write_fp_regs) {
             stf_writer << stf::InstRegRecord(fp_reg_dst,
                                              stf::Registers::STF_REG_TYPE::FLOATING_POINT,
                                              stf::Registers::STF_REG_OPERAND_TYPE::REG_DEST,
@@ -103,25 +101,19 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
         }
 #endif
         // Memory reads
-        for(auto mem_read : cpu->stf_mem_reads) {
-            stf_writer << stf::InstMemAccessRecord(mem_read.vaddr,
-                                                   mem_read.size,
-                                                   0,
-                                                   stf::INST_MEM_ACCESS::READ);
+        for (auto mem_read : cpu->stf_mem_reads) {
+            stf_writer << stf::InstMemAccessRecord(mem_read.vaddr, mem_read.size, 0, stf::INST_MEM_ACCESS::READ);
             stf_writer << stf::InstMemContentRecord(mem_read.value);
         }
         // Memory writes
-        for(auto mem_write : cpu->stf_mem_writes) {
-            stf_writer << stf::InstMemAccessRecord(mem_write.vaddr,
-                                                   mem_write.size,
-                                                   0,
-                                                   stf::INST_MEM_ACCESS::WRITE);
-            stf_writer << stf::InstMemContentRecord(mem_write.value); // empty content for now
+        for (auto mem_write : cpu->stf_mem_writes) {
+            stf_writer << stf::InstMemAccessRecord(mem_write.vaddr, mem_write.size, 0, stf::INST_MEM_ACCESS::WRITE);
+            stf_writer << stf::InstMemContentRecord(mem_write.value);  // empty content for now
         }
     }
 
     // Privilege mode change
-    if(cpu->stf_prev_priv_mode != cpu->priv) {
+    if (cpu->stf_prev_priv_mode != cpu->priv) {
         stf_writer << stf::EventRecord(stf::EventRecord::TYPE::MODE_CHANGE, (uint64_t)cpu->priv);
         stf_writer << stf::EventPCTargetRecord(virt_machine_get_pc(m, 0));
         cpu->stf_prev_priv_mode = cpu->priv;
@@ -132,10 +124,9 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
         stf_writer << stf::EventPCTargetRecord(virt_machine_get_pc(m, 0));
     }
     // Opcode (instruction)
-    if(inst_width == 4) {
+    if (inst_width == 4) {
         stf_writer << stf::InstOpcode32Record(insn);
-    }
-    else {
+    } else {
         stf_writer << stf::InstOpcode16Record(insn & 0xFFFF);
     }
 
@@ -143,8 +134,7 @@ void stf_trace_element(RISCVMachine * m, int hartid, int priv, uint64_t last_pc,
     riscv_stf_reset(cpu);
 }
 
-bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
-{
+bool stf_trace_trigger(RISCVMachine* m, int hartid, uint32_t insn) {
     uint64_t pc = virt_machine_get_pc(m, hartid);
 
     // Determine if we're in a traceable region of the workload. All conditions
@@ -152,29 +142,25 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
 
     // If tracepoints are enabled, open the trace and start tracing when the
     // start tracepoint is detected
-    if(m->common.stf_tracepoints_enabled) {
-        if(insn == START_TRACE_OPC) {
+    if (m->common.stf_tracepoints_enabled) {
+        if (insn == START_TRACE_OPC) {
             m->common.stf_in_tracepoint_region = true;
-        }
-        else if(insn == STOP_TRACE_OPC) {
+        } else if (insn == STOP_TRACE_OPC) {
             m->common.stf_in_tracepoint_region = false;
         }
     }
     bool in_traceable_region = m->common.stf_in_tracepoint_region;
 
     // Are we in a traceable privilege mode?
-    in_traceable_region &= \
-        riscv_get_priv_level(m->cpu_state[hartid]) <= m->common.stf_highest_priv_mode;
+    in_traceable_region &= riscv_get_priv_level(m->cpu_state[hartid]) <= m->common.stf_highest_priv_mode;
 
     // Are we executing the expected thread? - ignore for simpoints
     const uint64_t asid = (m->cpu_state[hartid]->satp >> 4) & 0xFFFF;
     in_traceable_region &= (m->common.stf_in_tracepoint_region || m->common.stf_prog_asid == asid);
 
-    const bool entering_traceable_region = \
-        in_traceable_region && (m->common.stf_in_traceable_region == false);
-    const bool exiting_traceable_region = \
-        (in_traceable_region == false) && m->common.stf_in_traceable_region;
-    m->common.stf_in_traceable_region = in_traceable_region;
+    const bool entering_traceable_region = in_traceable_region && (m->common.stf_in_traceable_region == false);
+    const bool exiting_traceable_region  = (in_traceable_region == false) && m->common.stf_in_traceable_region;
+    m->common.stf_in_traceable_region    = in_traceable_region;
 
     /* If entering the traceable region for the first time, open the trace.
      * If the trace is already open, it means we're reentering the traceable
@@ -182,39 +168,37 @@ bool stf_trace_trigger(RISCVMachine * m, int hartid, uint32_t insn)
      * state changes that occurred in the non-traceable region. The current
      * instruction will not be traced.
      */
-    if(entering_traceable_region) {
-        if(m->common.stf_trace_open == false) {
+    if (entering_traceable_region) {
+        if (m->common.stf_trace_open == false) {
             stf_trace_open(m, hartid, pc);
-        }
-        else {
+        } else {
             stf_record_state(m, hartid, pc);
         }
     }
 
     // Returns true if current instruction should be traced
-    const bool exclude_stop_tracepoint = m->common.stf_tracepoints_enabled && (m->common.stf_include_stop_tracepoint == false) && (insn = STOP_TRACE_OPC);
-    return (m->common.stf_in_traceable_region && !entering_traceable_region) || (exiting_traceable_region && !exclude_stop_tracepoint);
+    const bool exclude_stop_tracepoint
+        = m->common.stf_tracepoints_enabled && (m->common.stf_include_stop_tracepoint == false) && (insn = STOP_TRACE_OPC);
+    return (m->common.stf_in_traceable_region && !entering_traceable_region)
+           || (exiting_traceable_region && !exclude_stop_tracepoint);
 }
 
-void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
-{
+void stf_trace_open(RISCVMachine* m, int hartid, target_ulong pc) {
     m->common.stf_trace_open = true;
-    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Started at 0x%llx\n",
-       (long long unsigned int) pc);
+    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Started at 0x%llx\n", (long long unsigned int)pc);
 
-    RISCVCPUState * s = m->cpu_state[hartid];
+    RISCVCPUState* s        = m->cpu_state[hartid];
     m->common.stf_prog_asid = (s->satp >> 4) & 0xFFFF;
-    s->stf_prev_priv_mode = s->priv;
+    s->stf_prev_priv_mode   = s->priv;
 
-    if((bool)stf_writer == false) {
+    if ((bool)stf_writer == false) {
         stf_writer.open(m->common.stf_trace);
-        stf_writer.addTraceInfo(stf::TraceInfoRecord(
-                   stf::STF_GEN::STF_GEN_DROMAJO, 1, 1, 0,"Trace from Dromajo"));
+        stf_writer.addTraceInfo(stf::TraceInfoRecord(stf::STF_GEN::STF_GEN_DROMAJO, 1, 1, 0, "Trace from Dromajo"));
         stf_writer.setISA(stf::ISA::RISCV);
         stf_writer.setHeaderIEM(stf::INST_IEM::STF_INST_IEM_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_RV64);
         stf_writer.setTraceFeature(stf::TRACE_FEATURES::STF_CONTAIN_PHYSICAL_ADDRESS);
-	// TODO: Update trace features
+        // TODO: Update trace features
         stf_writer.setHeaderPC(pc);
         stf_writer.finalizeHeader();
     }
@@ -222,13 +206,9 @@ void stf_trace_open(RISCVMachine * m, int hartid, target_ulong pc)
     stf_record_state(m, hartid, pc);
 }
 
-void stf_trace_close(RISCVMachine * m, target_ulong pc)
-{
+void stf_trace_close(RISCVMachine* m, target_ulong pc) {
     m->common.stf_trace_open = false;
-    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Stopped at 0x%llx\n",
-       (long long unsigned int) pc);
-    fprintf(dromajo_stderr, ">>> DROMAJO: Traced %llu insts\n",
-       (long long unsigned int) m->common.stf_count);
+    fprintf(dromajo_stderr, ">>> DROMAJO: Tracing Stopped at 0x%llx\n", (long long unsigned int)pc);
+    fprintf(dromajo_stderr, ">>> DROMAJO: Traced %llu insts\n", (long long unsigned int)m->common.stf_count);
     stf_writer.close();
 }
-
