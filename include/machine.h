@@ -40,8 +40,8 @@
 
 #include <stdint.h>
 
-#include "json.h"
 #include "dromajo_stf.h"
+#include "json.h"
 
 typedef struct RISCVMachine RISCVMachine;
 
@@ -118,8 +118,8 @@ typedef struct {
 } VMEthEntry;
 
 #ifdef SIMPOINT_BB
-#include <vector>
 #include <unordered_map>
+#include <vector>
 struct Simpoint {
     Simpoint(uint64_t i, int j) : start(i), id(j) {}
     bool operator<(const Simpoint &j) const { return (start < j.start); }
@@ -198,11 +198,11 @@ typedef struct VirtMachine {
     FBDevice *fb_dev;
 
 #ifdef SIMPOINT_BB
-    uint32_t              simpoint_next;
-    std::vector<Simpoint> simpoints;
+    uint32_t                          simpoint_next;
+    std::vector<Simpoint>             simpoints;
     std::unordered_map<uint64_t, int> bbv;
-    uint64_t bbv_ninst;
-    bool simpoint_trace;
+    uint64_t                          bbv_ninst;
+    bool                              simpoint_trace;
 #endif
 
     char *   snapshot_load_name;
@@ -211,17 +211,17 @@ typedef struct VirtMachine {
     uint64_t maxinsns;
     uint64_t trace;
     /* STF Trace Generation */
-    const char * stf_trace = nullptr;         // STF trace file name
-    bool         stf_essential_mode;          // Only include essential records in STF trace
-    bool         stf_tracepoints_enabled;     // Enable detection of start and stop tracepoints
-    bool         stf_include_stop_tracepoint; // Include the stop tracepoint in the STF trace
-    int          stf_highest_priv_mode;       // Highest privilege mode to trace
-    bool         stf_trace_open;              // STF trace is open (tracing has begun)
-    bool         stf_in_traceable_region;     // STF tracing is enabled (all conditions met)
-    bool         stf_in_tracepoint_region;    // Are we in the tracepoionted region of the workload?
-    bool         stf_exit_on_stop_opc;// terminate the simulation after detecting STOP_TRACE opcode
-    uint64_t     stf_prog_asid;               // STF program asid
-    uint64_t     stf_count;                   // Number of traced instructions
+    const char *stf_trace = nullptr;          // STF trace file name
+    bool        stf_essential_mode;           // Only include essential records in STF trace
+    bool        stf_tracepoints_enabled;      // Enable detection of start and stop tracepoints
+    bool        stf_include_stop_tracepoint;  // Include the stop tracepoint in the STF trace
+    int         stf_highest_priv_mode;        // Highest privilege mode to trace
+    bool        stf_trace_open;               // STF trace is open (tracing has begun)
+    bool        stf_in_traceable_region;      // STF tracing is enabled (all conditions met)
+    bool        stf_in_tracepoint_region;     // Are we in the tracepoionted region of the workload?
+    bool        stf_exit_on_stop_opc;         // terminate the simulation after detecting STOP_TRACE opcode
+    uint64_t    stf_prog_asid;                // STF program asid
+    uint64_t    stf_count;                    // Number of traced instructions
 
     /* For co-simulation only, they are -1 if nothing is pending. */
     bool cosim;

@@ -57,37 +57,37 @@
 extern int simpoint_roi;
 
 // NOTE: Use GET_INSN_COUNTER not mcycle because this is just to track advancement of simulation
-#define write_reg(x, val)                                \
-    ({                                                   \
-        if(s->machine->common.stf_in_traceable_region) { \
-            s->stf_write_regs.emplace_back(x);           \
-        }                                                \
-        s->most_recently_written_reg = (x);              \
-        s->reg_prior[x]              = s->reg[x];        \
-        s->reg[x]                    = (val);            \
+#define write_reg(x, val)                                 \
+    ({                                                    \
+        if (s->machine->common.stf_in_traceable_region) { \
+            s->stf_write_regs.emplace_back(x);            \
+        }                                                 \
+        s->most_recently_written_reg = (x);               \
+        s->reg_prior[x]              = s->reg[x];         \
+        s->reg[x]                    = (val);             \
     })
-#define read_reg(x)                                      \
-    ({                                                   \
-        if(s->machine->common.stf_in_traceable_region) { \
-            s->stf_read_regs.emplace_back(x);            \
-        }                                                \
-        s->reg[x];                                       \
+#define read_reg(x)                                       \
+    ({                                                    \
+        if (s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_regs.emplace_back(x);             \
+        }                                                 \
+        s->reg[x];                                        \
     })
-#define write_fp_reg(x, val)                             \
-    ({                                                   \
-        if(s->machine->common.stf_in_traceable_region) { \
-            s->stf_write_fp_regs.emplace_back(x);        \
-        }                                                \
-        s->most_recently_written_fp_reg = (x);           \
-        s->fp_reg[x]                    = (val);         \
-        s->fs                           = 3;             \
+#define write_fp_reg(x, val)                              \
+    ({                                                    \
+        if (s->machine->common.stf_in_traceable_region) { \
+            s->stf_write_fp_regs.emplace_back(x);         \
+        }                                                 \
+        s->most_recently_written_fp_reg = (x);            \
+        s->fp_reg[x]                    = (val);          \
+        s->fs                           = 3;              \
     })
-#define read_fp_reg(x)                                   \
-    ({                                                   \
-        if(s->machine->common.stf_in_traceable_region) { \
-            s->stf_read_fp_regs.emplace_back(x);         \
-        }                                                \
-        s->fp_reg[x];                                    \
+#define read_fp_reg(x)                                    \
+    ({                                                    \
+        if (s->machine->common.stf_in_traceable_region) { \
+            s->stf_read_fp_regs.emplace_back(x);          \
+        }                                                 \
+        s->fp_reg[x];                                     \
     })
 
 /*
@@ -178,8 +178,8 @@ static inline void track_write(RISCVCPUState *s, uint64_t vaddr, uint64_t paddr,
 #ifdef GOLDMEM_INORDER
     s->last_data_value = data;
 #endif
-    if(s->machine->common.stf_in_traceable_region) {
-       s->stf_mem_writes.emplace_back(vaddr, size, data);
+    if (s->machine->common.stf_in_traceable_region) {
+        s->stf_mem_writes.emplace_back(vaddr, size, data);
     }
 }
 
@@ -193,9 +193,9 @@ static inline uint64_t track_dread(RISCVCPUState *s, uint64_t vaddr, uint64_t pa
     s->last_data_type  = 0;
     // printf("track.ld[%llx:%llx]=%llx\n", paddr, paddr+size-1, data);
 
-    if(s->machine->common.stf_in_traceable_region) {
+    if (s->machine->common.stf_in_traceable_region) {
         // FIXME: Hack to prevent the tohost read from being traced everytime
-        if(vaddr != s->machine->htif_tohost_addr) {
+        if (vaddr != s->machine->htif_tohost_addr) {
             s->stf_mem_reads.emplace_back(vaddr, size, data);
         }
     }
@@ -2400,11 +2400,11 @@ static void deserialize_memory(void *base, size_t size, const char *file) {
 
     char *potr = (char *)base;
     while (size) {
-      ssize_t sz = read(f_fd, potr, size);
-      if (sz < 0)
-        err(-3, "%s %zd size does not match memory size %zd", file, sz, size);
-      size -= sz;
-      potr += sz;
+        ssize_t sz = read(f_fd, potr, size);
+        if (sz < 0)
+            err(-3, "%s %zd size does not match memory size %zd", file, sz, size);
+        size -= sz;
+        potr += sz;
     }
 
     close(f_fd);
